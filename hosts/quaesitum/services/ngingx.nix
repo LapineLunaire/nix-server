@@ -59,4 +59,8 @@ in
   networking.firewall.allowedUDPPorts = [
     443
   ];
+
+  systemd.tmpfiles.rules = [
+    "L /run/searx/limiter.toml - - - - /etc/searxng/limiter.toml"
+  ];
 }
