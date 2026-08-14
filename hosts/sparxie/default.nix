@@ -10,6 +10,7 @@ in {
     outputs.nixosModules.zfs
     ./hardware-configuration.nix
     ./sops.nix
+    ./services
   ];
 
   networking = {

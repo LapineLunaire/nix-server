@@ -121,6 +121,12 @@
       zfs = ./modules/nixos/zfs.nix;
     };
 
+    # Functions from a parameter set to a module, rather than modules themselves. Call them with their arguments instead of listing them in imports.
+    lib = {
+      # Takes { pool, startAt }.
+      mkBorgBackup = import ./modules/nixos/borg-backup.nix;
+    };
+
     formatter = forHostSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
     devShells = forHostSystems (system: let
