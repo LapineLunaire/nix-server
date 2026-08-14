@@ -25,6 +25,8 @@
     };
     environment.BORG_RSH = "ssh -i ${config.sops.secrets."borg-ssh-key".path} -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${config.sops.secrets."borg-known-hosts".path}";
     compression = "auto,zstd";
+    # Run a backup missed while the host was down at the next boot. The stamp this reads lives in /var/lib/systemd/timers, which host-base persists, so it survives the tmpfs root. The same option gives the timer network-online ordering, which nixpkgs gates on it together with the repo being remote.
+    persistentTimer = true;
     inherit startAt;
     preHook = ''
       export BORG_REPO=$(< ${config.sops.secrets."borg-repo".path})
