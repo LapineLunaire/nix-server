@@ -20,6 +20,10 @@ in {
 
   host.flakePath = "/persist/nix-config";
 
+  # ACME account email and the sops secret holding the Cloudflare DNS-01 token, read by modules/nixos/caddy.nix.
+  host.acmeEmail = "certs@lunaire.eu";
+  host.dnsApiTokenSecret = "bunny-enterprises-dns-api-token";
+
   # Static network config per Hetzner VPS requirements (https://docs.hetzner.com/cloud/servers/static-configuration/).
   # The IPv4 gateway is off-subnet relative to the /32 address, so the route needs GatewayOnLink. The IPv6 default gateway is the router's link-local address.
   systemd.network.networks."30-wan" = {

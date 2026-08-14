@@ -119,6 +119,7 @@
       host-base = ./modules/nixos/host-base;
       security = ./modules/nixos/security.nix;
       zfs = ./modules/nixos/zfs.nix;
+      caddy = ./modules/nixos/caddy.nix;
     };
 
     # Functions from a parameter set to a module, rather than modules themselves. Call them with their arguments instead of listing them in imports.

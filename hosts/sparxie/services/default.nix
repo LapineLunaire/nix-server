@@ -8,6 +8,8 @@
       pool = "sparxie";
       startAt = "03:00";
     })
+    outputs.nixosModules.caddy
+    ./proxy.nix
   ];
 
   # sparxie is a VPS with no firmware to manage. host-base enables fwupd unconditionally, so overriding it needs mkForce.
