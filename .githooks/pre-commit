@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Rejects a commit whose staged .nix files are not alejandra-formatted. Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+
+if ! command -v alejandra > /dev/null; then
+  echo "pre-commit: alejandra not on PATH, skipping the formatting check" >&2
+  exit 0
+fi
+
+mapfile -d '' files < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.nix')
+[ ${#files[@]} -eq 0 ] && exit 0
+
+# Check the staged blob rather than the working tree file, so what the commit records is what gets checked.
+unformatted=()
+for file in "${files[@]}"; do
+  if ! git show ":$file" | alejandra --check --quiet - > /dev/null; then
+    unformatted+=("$file")
+  fi
+done
+
+if [ ${#unformatted[@]} -gt 0 ]; then
+  printf 'pre-commit: not alejandra-formatted as staged: %s\n' "${unformatted[*]}" >&2
+  echo "pre-commit: run 'alejandra .' and stage the result" >&2
+  exit 1
+fi
