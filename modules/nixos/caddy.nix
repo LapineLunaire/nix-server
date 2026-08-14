@@ -46,6 +46,7 @@ in {
       hash = "sha256-7GoH8YLCoPmPExQxoga2FHB58zQDoZVf1BBwkVi0SsQ=";
     };
 
+    # Also declared by acme.nix; the definitions merge on a host importing both.
     sops.secrets.${tokenSecret} = {};
     # The plugin reads CF_API_TOKEN. lego's template reads CF_DNS_API_TOKEN, so each issuer gets its own rendering of the same secret.
     sops.templates."caddy-dns-api-token.env" = {

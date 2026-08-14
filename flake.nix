@@ -119,6 +119,7 @@
       host-base = ./modules/nixos/host-base;
       security = ./modules/nixos/security.nix;
       zfs = ./modules/nixos/zfs.nix;
+      acme = ./modules/nixos/acme.nix;
       caddy = ./modules/nixos/caddy.nix;
       postgresql-passwords = ./modules/nixos/postgresql-passwords.nix;
     };

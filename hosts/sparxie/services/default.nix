@@ -8,8 +8,10 @@
       pool = "sparxie";
       startAt = "03:00";
     })
+    outputs.nixosModules.acme
     outputs.nixosModules.caddy
     ./database.nix
+    ./ejabberd.nix
     ./proxy.nix
   ];
 
