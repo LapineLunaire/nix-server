@@ -9,6 +9,7 @@
       startAt = "03:00";
     })
     outputs.nixosModules.caddy
+    ./database.nix
     ./proxy.nix
   ];
 
