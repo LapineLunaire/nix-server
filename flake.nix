@@ -121,6 +121,7 @@
       zfs = ./modules/nixos/zfs.nix;
       acme = ./modules/nixos/acme.nix;
       caddy = ./modules/nixos/caddy.nix;
+      ip-whitelist = ./modules/nixos/ip-whitelist.nix;
       postgresql-passwords = ./modules/nixos/postgresql-passwords.nix;
     };
 

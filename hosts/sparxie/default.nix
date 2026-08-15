@@ -1,4 +1,5 @@
 {
+  config,
   outputs,
   pkgs,
   ...
@@ -7,6 +8,7 @@
 in {
   imports = [
     outputs.nixosModules.host-base
+    outputs.nixosModules.ip-whitelist
     outputs.nixosModules.zfs
     ./hardware-configuration.nix
     ./sops.nix
@@ -23,6 +25,13 @@ in {
   # ACME account email and the sops secret holding the Cloudflare DNS-01 token, read by modules/nixos/caddy.nix.
   host.acmeEmail = "certs@lunaire.eu";
   host.dnsApiTokenSecret = "bunny-enterprises-dns-api-token";
+
+  # sshd accepts connections only from the external addresses in these secrets. Nothing is exempt, since the veto chain runs ahead of the firewall's own loopback accept. A stale whitelist is recovered through the Hetzner console.
+  ipWhitelist.ssh = {
+    ports = [22];
+    ipv4File = config.sops.secrets."ssh-allowed-ips-v4".path;
+    ipv6File = config.sops.secrets."ssh-allowed-ips-v6".path;
+  };
 
   # Static network config per Hetzner VPS requirements (https://docs.hetzner.com/cloud/servers/static-configuration/).
   # The IPv4 gateway is off-subnet relative to the /32 address, so the route needs GatewayOnLink. The IPv6 default gateway is the router's link-local address.
