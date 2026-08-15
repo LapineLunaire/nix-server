@@ -11,7 +11,7 @@
   wg = config.host.wireguardTunnel;
   # Source-IP base allowlist applied to every vhost: the trusted client subnets.
   baseAllow = config.host.trustedSubnets;
-  tunnelWeb = import ../../tunnel-web.nix;
+
   # The misc share browsed over HTTP, served both as a proxied vhost and directly on the tunnel address below. Read-only NFS from the vault guest.
   miscFileServer = ''
     root * /srv/misc
