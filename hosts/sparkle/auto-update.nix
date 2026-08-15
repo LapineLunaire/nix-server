@@ -26,7 +26,7 @@ in {
     branch = "main";
   };
 
-  # No reboot: a kernel change is applied deliberately, since rebooting takes the whole fleet down with the host.
+  # No reboot: sparkle's root pool is encrypted with keylocation=prompt, so an unattended reboot would stop at the passphrase. Kernel changes are applied on a deliberate reboot instead.
   system.autoUpgrade.allowReboot = false;
   systemd.services.nixos-upgrade.serviceConfig.ExecStartPost = restartGuests;
 }
