@@ -61,6 +61,7 @@
     nixvim,
     impermanence,
     lanzaboote,
+    microvm,
     sops-nix,
     ...
   } @ inputs: let
@@ -112,6 +113,69 @@
           ]
           ++ modules;
       };
+    # Each hypervisor supplies its own guest data and its own guest directory, so adding a second one is an entry here plus its own files.
+    hypervisors = {
+      sparkle = {
+        system = "x86_64-linux";
+        guestDir = ./hosts/sparkle/guests;
+        registry = import ./hosts/sparkle/guest-registry.nix;
+        # Handed to every guest as module arguments.
+        dmz = import ./hosts/sparkle/dmz-net.nix;
+        net = import ./hosts/sparkle/guest-net.nix;
+        web = import ./hosts/sparkle/guest-web.nix;
+        trustedSubnets = import ./hosts/sparkle/trusted-subnets.nix;
+        tunnelWeb = import ./hosts/sparkle/tunnel-web.nix;
+        # sparkle's SSH host public key, authorized for root on every guest so `microvm -s` reaches the VSOCK console.
+        consoleKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMJ+Zb08V2BIx3TnFgha04A55Vo9d0ftNpNvnRgfO3Gk";
+        # Five octets. The first is 02, whose low two bits mark the address locally administered and unicast, so it stays clear of vendor-assigned ranges. The other four are random. identity.nix appends the guest's index as the sixth octet.
+        macPrefix = "02:76:96:0e:fe";
+        # Guests needing extra flake-input modules name them here.
+        extraModules = {};
+      };
+    };
+
+    # A guest: impermanence, microvm, and sops under the shared guest base, the guest's identity, and its own config. Guests carry no interactive user, so no home-manager.
+    # The guest data is passed through specialArgs, so a guest reads net.vmAddress.<name> and holds no path to its own location.
+    mkGuest = hv: name:
+      nixpkgs.lib.nixosSystem {
+        specialArgs = specialArgsFor hv.system // {inherit (hv) dmz net web trustedSubnets tunnelWeb;};
+        modules =
+          [
+            {nixpkgs.pkgs = pkgsFor hv.system;}
+            impermanence.nixosModules.impermanence
+            microvm.nixosModules.microvm
+            sops-nix.nixosModules.sops
+            (outputs.lib.mkMicrovmGuest {
+              inherit (hv) consoleKey;
+              inherit (hv.net) nodeExporterPort;
+              # The guests route through the DMZ router, as peers on the segment.
+              gateway = hv.dmz.gateway;
+              resolver = hv.net.vmAddress.dns;
+              proxyAddress = hv.net.vmAddress.proxy;
+              monitoringAddress = hv.net.vmAddress.monitoring;
+              proxiedPorts = nixpkgs.lib.optional (hv.web.endpoints ? ${name}) hv.web.endpoints.${name}.port;
+            })
+            (outputs.lib.mkMicrovmIdentity {
+              inherit name;
+              inherit (hv) macPrefix;
+              inherit (hv.registry.${name}) index;
+              inherit (hv.dmz) prefixLength;
+              address = hv.net.vmAddress.${name};
+            })
+            (hv.guestDir + "/${name}")
+          ]
+          ++ (hv.extraModules.${name} or []);
+      };
+
+    # One nixosConfiguration per registry entry across every hypervisor. Guest names share a namespace with the hosts, so a name declared by two hypervisors is raised here as an evaluation error.
+    guestConfigurations = let
+      perHypervisor = nixpkgs.lib.mapAttrsToList (_: hv: nixpkgs.lib.mapAttrs (name: _: mkGuest hv name) hv.registry) hypervisors;
+      names = nixpkgs.lib.concatMap nixpkgs.lib.attrNames perHypervisor;
+      duplicates = nixpkgs.lib.subtractLists (nixpkgs.lib.unique names) names;
+    in
+      if duplicates != []
+      then throw "guest name declared by more than one hypervisor: ${nixpkgs.lib.concatStringsSep ", " duplicates}"
+      else nixpkgs.lib.foldl' (a: b: a // b) {} perHypervisor;
   in {
     # Shared modules addressable as outputs.nixosModules.<name> from any nesting depth.
     nixosModules = {
@@ -134,6 +198,10 @@
     lib = {
       # Takes { pool, startAt }.
       mkBorgBackup = import ./modules/nixos/borg-backup.nix;
+      # The microVM framework, each taking the guest data it needs.
+      mkMicrovmGuest = import ./modules/nixos/microvm/guest.nix;
+      mkMicrovmIdentity = import ./modules/nixos/microvm/identity.nix;
+      mkMicrovmHost = import ./modules/nixos/microvm/host.nix;
     };
 
     formatter = forHostSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
@@ -157,16 +225,18 @@
 
     packages = forHostSystems (system: import ./pkgs (pkgsFor system));
 
-    nixosConfigurations = {
-      sparkle = mkHost {
-        system = "x86_64-linux";
-        modules = [lanzaboote.nixosModules.lanzaboote ./hosts/sparkle];
-      };
+    nixosConfigurations =
+      {
+        sparkle = mkHost {
+          system = "x86_64-linux";
+          modules = [microvm.nixosModules.host lanzaboote.nixosModules.lanzaboote ./hosts/sparkle];
+        };
 
-      sparxie = mkHost {
-        system = "aarch64-linux";
-        modules = [./hosts/sparxie];
-      };
-    };
+        sparxie = mkHost {
+          system = "aarch64-linux";
+          modules = [./hosts/sparxie];
+        };
+      }
+      // guestConfigurations;
   };
 }

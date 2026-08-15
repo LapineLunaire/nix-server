@@ -2,6 +2,8 @@
 keys:
   - &sparkle_host age10anc2xygfedadkvlsc6whyurx7plyquxa47w0c9ut728n8ur4vas677ax7
   - &sparxie_host age1tddj97txq5mckvzrs8czekp5lc530rc35yw0mtd3w9qxjjwf4vpsn7s8yl
+  - &vm_proxy age1zqe754t3w9pct9g3rtkx06njw9l5s7mj9xc8m5qrd2hp4h8d0cjsp04g3t
+  - &vm_monitoring age1np3n40swg3wj74jx7v54fjellr4ynxgtdhg05u4denmqu24n8dnsykdupd
 
 creation_rules:
   - path_regex: hosts/sparxie/secrets\.yaml$
@@ -11,4 +13,15 @@ creation_rules:
   - path_regex: hosts/sparkle/secrets\.yaml$
     key_groups:
       - age:
+          - *sparkle_host
+  # Each guest rule also lists sparkle_host, so the host can rebuild any guest. Listed in registry index order.
+  - path_regex: hosts/sparkle/guests/proxy/secrets\.yaml$
+    key_groups:
+      - age:
+          - *vm_proxy
+          - *sparkle_host
+  - path_regex: hosts/sparkle/guests/monitoring/secrets\.yaml$
+    key_groups:
+      - age:
+          - *vm_monitoring
           - *sparkle_host
