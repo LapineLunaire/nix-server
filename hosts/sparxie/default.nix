@@ -13,6 +13,7 @@ in {
     ./hardware-configuration.nix
     ./sops.nix
     ./services
+    ./auto-update.nix
   ];
 
   networking = {

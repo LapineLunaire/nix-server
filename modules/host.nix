@@ -16,6 +16,23 @@
       description = "Name of the sops secret holding this system's zone-scoped Cloudflare DNS API token, read by the acme and caddy modules.";
     };
 
+    autoUpdate = {
+      owner = lib.mkOption {
+        type = lib.types.str;
+        description = "User owning the checkout; git runs as this user.";
+      };
+
+      branch = lib.mkOption {
+        type = lib.types.str;
+        description = "Branch whose origin head is verified and reset to before each upgrade.";
+      };
+
+      allowedSigners = lib.mkOption {
+        type = lib.types.lines;
+        description = "gpg.ssh allowed-signers entries trusted to sign the update branch. Definitions merge, so a system can trust a signer beyond the shared set.";
+      };
+    };
+
     wireguardTunnel = {
       prefixLength = lib.mkOption {
         type = lib.types.str;
