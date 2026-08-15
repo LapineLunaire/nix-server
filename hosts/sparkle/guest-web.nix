@@ -3,6 +3,10 @@
 let
   domain = "lunaire.moe";
   endpoints = {
+    authelia = {
+      sub = "auth";
+      port = 9091;
+    };
     monitoring = {
       sub = "gf";
       port = 3000;

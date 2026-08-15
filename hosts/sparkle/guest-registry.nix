@@ -7,5 +7,10 @@
     index = 11;
     deps = ["dns"];
   };
+  postgres = {index = 12;};
+  authelia = {
+    index = 14;
+    deps = ["postgres"];
+  };
   monitoring = {index = 15;};
 }

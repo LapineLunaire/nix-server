@@ -20,6 +20,7 @@
   # One vhost per proxied guest, keyed by guest name. The site address and the upstream port come from the fleet's web endpoints, and the dns guest generates a zone CNAME per vhost. extraAllow lists callers beyond baseAllow; body overrides the default reverse proxy to the guest.
   vmVhosts = {
     monitoring.extraAllow = [];
+    authelia.extraAllow = [];
   };
   # Vhosts this guest serves itself, keyed by full site address since they have no upstream behind them.
   hostVhosts = {

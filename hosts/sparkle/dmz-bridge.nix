@@ -76,6 +76,9 @@ in {
         # monitoring: scrape node_exporter on every guest.
         iifname "monitoring" oifname { ${guests} } tcp dport ${toString net.nodeExporterPort} accept
 
+        # PostgreSQL, from the client guests listed in guest-net.nix.
+        iifname { ${guests} } oifname "postgres" tcp dport ${toString net.postgresPort} ip saddr { ${net.postgresClientsNft} } accept
+
         # The resolver for the whole network: every guest and every client on the segment reaches it, unfiltered by source.
         iifname { ${guests} } oifname "dns" udp dport 53 accept
         iifname { ${guests} } oifname "dns" tcp dport 53 accept
