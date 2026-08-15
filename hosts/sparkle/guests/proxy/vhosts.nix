@@ -27,6 +27,14 @@
     authelia.extraAllow = [net.vmAddress.forgejo net.vmAddress.pgadmin uptimeKuma];
     pgadmin.extraAllow = [uptimeKuma];
     uptime-kuma.extraAllow = [];
+    vaultwarden = {
+      extraAllow = [uptimeKuma];
+      body = ''
+        reverse_proxy ${net.vmAddress.vaultwarden}:${toString web.endpoints.vaultwarden.port} {
+          header_up X-Real-IP {remote_host}
+        }
+      '';
+    };
     # forgejo: the DMZ segment for clones from other server hosts, plus uptime-kuma.
     forgejo.extraAllow = [dmz.subnet uptimeKuma];
   };

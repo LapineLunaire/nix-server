@@ -19,6 +19,10 @@ let
       sub = "git";
       port = 3000;
     };
+    vaultwarden = {
+      sub = "vw";
+      port = 8222;
+    };
     monitoring = {
       sub = "gf";
       port = 3000;

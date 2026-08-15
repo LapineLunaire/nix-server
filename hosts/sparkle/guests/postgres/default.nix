@@ -26,7 +26,7 @@ in {
       max_connections = 50;
     };
     # The databases, roles and pg_hba lines below grow one entry per client guest.
-    ensureDatabases = ["authelia" "forgejo"];
+    ensureDatabases = ["authelia" "forgejo" "vaultwarden"];
     ensureUsers = [
       {
         name = "authelia";
@@ -34,6 +34,10 @@ in {
       }
       {
         name = "forgejo";
+        ensureDBOwnership = true;
+      }
+      {
+        name = "vaultwarden";
         ensureDBOwnership = true;
       }
       {
@@ -45,6 +49,7 @@ in {
       local all             postgres                        peer
       host  authelia        authelia    ${net.vmAddress.authelia}/32 scram-sha-256
       host  forgejo         forgejo     ${net.vmAddress.forgejo}/32 scram-sha-256
+      host  vaultwarden     vaultwarden ${net.vmAddress.vaultwarden}/32 scram-sha-256
       host  all             carmilla    ${net.vmAddress.pgadmin}/32 scram-sha-256
     '';
   };
@@ -52,6 +57,7 @@ in {
   sops.templates."postgresql-passwords.sql".content = ''
     ALTER USER authelia    WITH PASSWORD '${config.sops.placeholder."authelia-db-password"}';
     ALTER USER forgejo     WITH PASSWORD '${config.sops.placeholder."forgejo-db-password"}';
+    ALTER USER vaultwarden WITH PASSWORD '${config.sops.placeholder."vaultwarden-db-password"}';
     ALTER USER carmilla    WITH PASSWORD '${config.sops.placeholder."carmilla-db-password"}';
   '';
 

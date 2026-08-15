@@ -104,7 +104,7 @@ in {
         # Clients reach the proxy; each vhost's own source-IP allowlist gates the rest.
         iifname "sfp0" oifname "proxy" ip saddr { ${trusted}, ${dmz.subnet} } tcp dport { 80, 443 } accept
         # Guests that call a vhost: uptime-kuma probes.
-        iifname { "uptime-kuma", "forgejo", "pgadmin" } oifname "proxy" tcp dport 443 accept
+        iifname { "uptime-kuma", "forgejo", "pgadmin", "ci-runner" } oifname "proxy" tcp dport 443 accept
         # The proxy reaches each backend on the port guest-web.nix gives it.
         ${lib.concatStrings (lib.mapAttrsToList (name: e: "iifname \"proxy\" oifname \"${name}\" tcp dport ${toString e.port} accept\n") web.endpoints)}
 

@@ -20,4 +20,12 @@
     index = 20;
     deps = ["postgres"];
   };
+  ci-runner = {
+    index = 21;
+    deps = ["forgejo"];
+  };
+  vaultwarden = {
+    index = 22;
+    deps = ["postgres"];
+  };
 }
