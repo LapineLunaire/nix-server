@@ -16,6 +16,7 @@ in {
     outputs.nixosModules.trusted-ssh-ingress
     ./hardware-configuration.nix
     ./sops.nix
+    ./services
     ./dmz-bridge.nix
   ];
 
