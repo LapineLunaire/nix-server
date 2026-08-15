@@ -1,0 +1,53 @@
+name: Update Flake Inputs
+
+# Runs after container-update (01:00 Mondays), so the eval step and the commit it pushes sit on top of its changes for the day.
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  update:
+    runs-on: debian
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install sudo
+        run: apt update && apt install -y sudo
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@616559265b40713947b9c190a8ff4b507b5df49b # v31
+
+      - name: Update flake inputs
+        run: nix flake update
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet flake.lock; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Evaluating both host toplevels (sparkle transitively evaluates every microvm) catches breakage from updated inputs before a host pulls the new lock.
+      - name: Eval host toplevels
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          for host in sparkle sparxie; do
+            nix eval ".#nixosConfigurations.${host}.config.system.build.toplevel.drvPath"
+          done
+
+      # The caddy package pins a fixed-output hash that goes stale whenever nixpkgs bumps caddy, which evaluation cannot see and the 03:00 auto-upgrade would hit first. sparkle alone is enough: both hosts share that source derivation, and sparxie is aarch64, which this runner refuses to build.
+      - name: Build caddy with plugins
+        if: steps.check.outputs.changed == 'true'
+        run: nix build --no-link ".#nixosConfigurations.sparkle.config.services.caddy.package"
+
+      - name: Commit and push
+        if: steps.check.outputs.changed == 'true'
+        uses: ./.forgejo/actions/commit-push
+        with:
+          paths: flake.lock
+          message: "flake: update inputs"
+          ssh-signing-key: ${{ secrets.CI_SIGNING_KEY }}

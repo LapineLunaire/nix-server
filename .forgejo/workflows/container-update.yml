@@ -1,0 +1,45 @@
+name: Update Container Digests
+
+on:
+  schedule:
+    - cron: "0 1 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  update:
+    runs-on: debian
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install skopeo
+        run: apt update && apt install -y skopeo
+
+      - name: Update digests
+        run: |
+          pgadmin=$(skopeo inspect --format '{{.Digest}}' docker://dpage/pgadmin4:latest)
+          ha=$(skopeo inspect --format '{{.Digest}}' docker://ghcr.io/home-assistant/home-assistant:stable)
+          # Read the pinned node tag from the runner config so bumping it there doesn't silently break this update.
+          node_tag=$(grep -o 'node:[0-9]*' hosts/sparkle/guests/ci-runner/default.nix | head -1)
+          node=$(skopeo inspect --format '{{.Digest}}' "docker://docker.io/library/${node_tag}")
+
+          sed -i "s|dpage/pgadmin4@sha256:[a-f0-9]*|dpage/pgadmin4@${pgadmin}|" hosts/sparkle/guests/pgadmin/default.nix
+          sed -i "s|home-assistant/home-assistant@sha256:[a-f0-9]*|home-assistant/home-assistant@${ha}|" hosts/sparkle/guests/homeassistant/default.nix
+          sed -i "s|node:[0-9]*@sha256:[a-f0-9]*|${node_tag}@${node}|" hosts/sparkle/guests/ci-runner/default.nix
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push
+        if: steps.check.outputs.changed == 'true'
+        uses: ./.forgejo/actions/commit-push
+        with:
+          paths: hosts/sparkle/guests/pgadmin/default.nix hosts/sparkle/guests/homeassistant/default.nix hosts/sparkle/guests/ci-runner/default.nix
+          message: "sparkle: update container image digests"
+          ssh-signing-key: ${{ secrets.CI_SIGNING_KEY }}
