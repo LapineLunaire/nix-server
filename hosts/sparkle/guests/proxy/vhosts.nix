@@ -1,6 +1,7 @@
-# The fleet's Caddy vhosts: one per proxied guest plus the misc file server, each behind a source-IP allowlist and its own Caddy-issued certificate, and the plain-HTTP file server sparxie reaches over the tunnel.
+# The guests' Caddy vhosts: one per proxied guest plus the misc file server, each behind a source-IP allowlist and its own Caddy-issued certificate, and the plain-HTTP file server sparxie reaches over the tunnel.
 {
   config,
+  dmz,
   net,
   tunnelWeb,
   web,
@@ -22,9 +23,12 @@
   uptimeKuma = net.vmAddress.uptime-kuma;
   vmVhosts = {
     monitoring.extraAllow = [uptimeKuma];
-    authelia.extraAllow = [uptimeKuma];
+    # authelia: the forgejo and pgadmin OIDC backchannels, plus uptime-kuma.
+    authelia.extraAllow = [net.vmAddress.forgejo net.vmAddress.pgadmin uptimeKuma];
     pgadmin.extraAllow = [uptimeKuma];
     uptime-kuma.extraAllow = [];
+    # forgejo: the DMZ segment for clones from other server hosts, plus uptime-kuma.
+    forgejo.extraAllow = [dmz.subnet uptimeKuma];
   };
   # Vhosts this guest serves itself, keyed by full site address since they have no upstream behind them.
   hostVhosts = {

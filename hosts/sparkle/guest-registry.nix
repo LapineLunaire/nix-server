@@ -16,4 +16,8 @@
   monitoring = {index = 15;};
   uptime-kuma = {index = 16;};
   vault = {index = 17;};
+  forgejo = {
+    index = 20;
+    deps = ["postgres"];
+  };
 }

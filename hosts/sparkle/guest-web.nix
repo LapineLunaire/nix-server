@@ -15,6 +15,10 @@ let
       sub = "up";
       port = 3001;
     };
+    forgejo = {
+      sub = "git";
+      port = 3000;
+    };
     monitoring = {
       sub = "gf";
       port = 3000;

@@ -42,6 +42,23 @@ in {
     identity_providers:
       oidc:
         clients:
+          - client_id: forgejo
+            client_name: Forgejo
+            client_secret: '${config.sops.placeholder."authelia-forgejo-client-secret-hash"}'
+            public: false
+            authorization_policy: two_factor
+            redirect_uris:
+              - ${web.origin.forgejo}/user/oauth2/authelia/callback
+            scopes:
+              - openid
+              - profile
+              - email
+              - groups
+            userinfo_signed_response_alg: none
+            grant_types:
+              - authorization_code
+            response_types:
+              - code
           - client_id: pgadmin
             client_name: pgAdmin
             client_secret: '${config.sops.placeholder."pgadmin-oidc-client-secret-hash"}'

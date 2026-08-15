@@ -73,7 +73,8 @@ in {
         ct state invalid drop
         ct state established,related accept
 
-        # ICMP to any guest from the trusted client subnets.
+        # LAN and VPN: git-over-ssh to forgejo, and ICMP to any guest.
+        iifname "sfp0" oifname "forgejo" ip saddr { ${trusted} } tcp dport 22 accept
         iifname "sfp0" oifname { ${guests} } ip saddr { ${trusted} } icmp type echo-request accept
 
         # monitoring: scrape node_exporter on every guest.
@@ -103,7 +104,7 @@ in {
         # Clients reach the proxy; each vhost's own source-IP allowlist gates the rest.
         iifname "sfp0" oifname "proxy" ip saddr { ${trusted}, ${dmz.subnet} } tcp dport { 80, 443 } accept
         # Guests that call a vhost: uptime-kuma probes.
-        iifname { "uptime-kuma" } oifname "proxy" tcp dport 443 accept
+        iifname { "uptime-kuma", "forgejo", "pgadmin" } oifname "proxy" tcp dport 443 accept
         # The proxy reaches each backend on the port guest-web.nix gives it.
         ${lib.concatStrings (lib.mapAttrsToList (name: e: "iifname \"proxy\" oifname \"${name}\" tcp dport ${toString e.port} accept\n") web.endpoints)}
 

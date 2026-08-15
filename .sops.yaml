@@ -6,6 +6,7 @@ keys:
   - &vm_pgadmin age17a03gftgln2x7zwrs88w6hgeeupj02me340jh6xpwxflt3llnylq5h88km
   - &vm_authelia age1c7juqjgugz6khypxkplryn2m8pqsuvzd2puw7thz6maf8yuqupgs6d6tru
   - &vm_postgres age1mv3fa9s8gkr33gf7yvt2jatucz96vp7tt5d03q9m9frtt3yeduystxap85
+  - &vm_forgejo age1usarz2spxcjsdghwhej8d0l2aqkv5hg299h0nft55qj59e20y9tsn3hnv7
   - &vm_vault age1uuqhdftrhq9k7lcjwkc3g3j30ejwzwk8uxw00tjgln3f4dqftfysv5v7kv
   - &vm_monitoring age1np3n40swg3wj74jx7v54fjellr4ynxgtdhg05u4denmqu24n8dnsykdupd
 
@@ -48,4 +49,9 @@ creation_rules:
     key_groups:
       - age:
           - *vm_vault
+          - *sparkle_host
+  - path_regex: hosts/sparkle/guests/forgejo/secrets\.yaml$
+    key_groups:
+      - age:
+          - *vm_forgejo
           - *sparkle_host
