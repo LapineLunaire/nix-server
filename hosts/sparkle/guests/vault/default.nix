@@ -148,6 +148,8 @@ in {
     enable = true;
     exports = ''
       /vault/misc ${net.vmAddress.proxy}(ro,sec=sys,no_subtree_check,crossmnt,all_squash,anonuid=1000,anongid=100)
+      /vault/misc/library ${net.vmAddress.kavita}(ro,sec=sys,no_subtree_check,all_squash,anonuid=1000,anongid=100)
+      /vault/torrents ${net.vmAddress.qbittorrent}(rw,sync,sec=sys,no_subtree_check,all_squash,anonuid=3000,anongid=3000)
     '';
   };
 

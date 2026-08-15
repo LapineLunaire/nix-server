@@ -35,8 +35,11 @@
         }
       '';
     };
-    # forgejo: the DMZ segment for clones from other server hosts, plus uptime-kuma.
-    forgejo.extraAllow = [dmz.subnet uptimeKuma];
+    # forgejo: the DMZ segment for clones from other server hosts, the ci-runner cloning over https, and uptime-kuma.
+    forgejo.extraAllow = [dmz.subnet net.vmAddress.ci-runner uptimeKuma];
+    homeassistant.extraAllow = [uptimeKuma];
+    kavita.extraAllow = [uptimeKuma];
+    qbittorrent.extraAllow = [uptimeKuma];
   };
   # Vhosts this guest serves itself, keyed by full site address since they have no upstream behind them.
   hostVhosts = {

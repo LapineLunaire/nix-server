@@ -28,4 +28,7 @@
     index = 22;
     deps = ["postgres"];
   };
+  kavita = {index = 23;};
+  qbittorrent = {index = 24;};
+  homeassistant = {index = 25;};
 }

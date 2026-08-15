@@ -63,6 +63,7 @@
     lanzaboote,
     microvm,
     sops-nix,
+    vpn-confinement,
     ...
   } @ inputs: let
     inherit (self) outputs;
@@ -130,7 +131,9 @@
         # Five octets. The first is 02, whose low two bits mark the address locally administered and unicast, so it stays clear of vendor-assigned ranges. The other four are random. identity.nix appends the guest's index as the sixth octet.
         macPrefix = "02:76:96:0e:fe";
         # Guests needing extra flake-input modules name them here.
-        extraModules = {};
+        extraModules = {
+          qbittorrent = [vpn-confinement.nixosModules.default];
+        };
       };
     };
 

@@ -23,6 +23,18 @@ let
       sub = "vw";
       port = 8222;
     };
+    kavita = {
+      sub = "kv";
+      port = 5000;
+    };
+    qbittorrent = {
+      sub = "qbt";
+      port = 4000;
+    };
+    homeassistant = {
+      sub = "ha";
+      port = 8123;
+    };
     monitoring = {
       sub = "gf";
       port = 3000;
