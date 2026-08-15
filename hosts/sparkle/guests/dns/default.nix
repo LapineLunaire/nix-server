@@ -66,6 +66,7 @@ in {
 
     sparkle  IN A    ${dmz.hostAddress}
     camellya IN A    ${camellyaAddress}
+    vault    IN A    ${net.vmAddress.vault}
     proxy    IN A    ${net.vmAddress.proxy}
     dns      IN A    ${net.vmAddress.dns}
     ${cnames}
@@ -87,6 +88,7 @@ in {
 
     ${ptrLabel dmz.hostAddress}   IN PTR  sparkle.${web.domain}.
     ${ptrLabel camellyaAddress}   IN PTR  camellya.${web.domain}.
+    ${ptrLabel net.vmAddress.vault}   IN PTR  vault.${web.domain}.
     ${ptrLabel net.vmAddress.proxy}   IN PTR  proxy.${web.domain}.
     ${ptrLabel net.vmAddress.dns}   IN PTR  dns.${web.domain}.
   '';

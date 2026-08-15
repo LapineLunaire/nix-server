@@ -38,6 +38,20 @@ in {
     initialBalloonMem = 256;
   };
 
+  # The misc library, read-only over NFSv4. Caddy deliberately gets no RequiresMountsFor: it serves every vhost and must not fail to start when the vault guest is down, so the automount confines an outage to requests that touch /srv/misc.
+  fileSystems."/srv/misc" = {
+    device = "${net.vmAddress.vault}:/vault/misc";
+    fsType = "nfs4";
+    options = [
+      "ro"
+      "_netdev"
+      "x-systemd.automount"
+      "x-systemd.mount-timeout=20"
+      "x-systemd.idle-timeout=600"
+      "noatime"
+    ];
+  };
+
   # Caddy binds the tunnel address for the file server vhost, so it must start after the interface is up.
   systemd.services.caddy.after = ["wg-quick-wg0.service"];
   systemd.services.caddy.wants = ["wg-quick-wg0.service"];

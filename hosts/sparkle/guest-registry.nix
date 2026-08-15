@@ -15,4 +15,5 @@
   };
   monitoring = {index = 15;};
   uptime-kuma = {index = 16;};
+  vault = {index = 17;};
 }

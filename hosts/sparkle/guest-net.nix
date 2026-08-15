@@ -7,7 +7,7 @@ let
   # Guests allowed to reach postgres on 5432: the DB-backed apps, uptime-kuma for its health check, and pgadmin.
   postgresClients = ["authelia" "pgadmin" "uptime-kuma"];
   # Guests allowed to reach the vault guest's NFSv4 server. The exports name their own clients, since each gets a different export and mode; this list is what the two firewall sites read.
-  nfsClients = [];
+  nfsClients = ["proxy"];
 in {
   inherit vmAddress;
   # Every guest's tap interface name, which is its guest name, comma-joined for nftables set literals. On a bridged segment the forward chain matches bridge ports, so these are what its rules name.

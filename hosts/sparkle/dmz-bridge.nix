@@ -8,6 +8,9 @@
 }: let
   # The trusted client subnets sparkle admits here. From trusted-subnets.nix, the same list the proxy guest applies as its vhost ACLs.
   trusted = config.host.trustedSubnetsNft;
+  trustedSubnets = import ./trusted-subnets.nix;
+  # The LAN and the router, the only two sources a discovery probe for the vault guest can arrive from. The vault guest derives the same pair and mirrors these rules on its own input chain.
+  discoverySources = "${trustedSubnets.lan}, ${dmz.gateway}";
   dmz = import ./dmz-net.nix;
   net = import ./guest-net.nix;
   registry = import ./guest-registry.nix;
@@ -79,6 +82,18 @@ in {
         # PostgreSQL, from the client guests listed in guest-net.nix.
         iifname { ${guests} } oifname "postgres" tcp dport ${toString net.postgresPort} ip saddr { ${net.postgresClientsNft} } accept
 
+        # NFSv4 to the vault guest from the clients listed in guest-net.nix. v4-only, so 2049 is the whole surface.
+        iifname { ${guests} } oifname "vault" tcp dport ${toString net.nfsPort} ip saddr { ${net.nfsClientsNft} } accept
+
+        # SMB from the trusted client subnets, which is where every SMB client is: the guests read the vault over NFS, so no guest and not sparkle appears here.
+        iifname "sfp0" oifname "vault" ip saddr { ${trusted} } tcp dport { 139, 445 } accept
+        # Discovery: NetBIOS and the wsdd HTTP endpoint, from those same clients plus the router, whose repeater re-emits their multicast with its own address.
+        iifname "sfp0" oifname "vault" ip saddr { ${discoverySources} } udp dport { 137, 138 } accept
+        iifname "sfp0" oifname "vault" ip saddr { ${discoverySources} } tcp dport 5357 accept
+        # mDNS and WS-Discovery, matched on the destination group: the router's repeater re-emits with its own address, so source-scoping would drop what the LAN clients rely on.
+        iifname "sfp0" oifname "vault" ip daddr 224.0.0.251 udp dport 5353 accept
+        iifname "sfp0" oifname "vault" ip daddr 239.255.255.250 udp dport 3702 accept
+
         # The resolver for the whole network: every guest and every client on the segment reaches it, unfiltered by source.
         iifname { ${guests} } oifname "dns" udp dport 53 accept
         iifname { ${guests} } oifname "dns" tcp dport 53 accept
@@ -95,7 +110,10 @@ in {
         # Per-guest egress off the segment, declared by each guest. No blanket grant: a guest with nothing declared reaches nothing.
         ${egressRules}
 
-        iifname { ${guests} } limit rate 10/second log prefix "fleet-egress-drop "
+        # Multicast from the vault tap floods to every port. The sfp0 copies are accepted above, and this drops the copies aimed at other taps, keeping them out of the log below.
+        iifname "vault" ip daddr { 224.0.0.251, 239.255.255.250 } drop
+
+        iifname { ${guests} } limit rate 10/second log prefix "guest-egress-drop "
       }
     '';
   };
