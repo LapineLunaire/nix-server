@@ -13,6 +13,7 @@
     ./database.nix
     ./ejabberd.nix
     ./proxy.nix
+    ./tuwunel.nix
   ];
 
   # sparxie is a VPS with no firmware to manage. host-base enables fwupd unconditionally, so overriding it needs mkForce.

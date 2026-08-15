@@ -1,6 +1,7 @@
 # sparxie's public Caddy vhosts: the bunny.enterprises site and Element.
 {
   config,
+  lib,
   pkgs,
   ...
 }: let
@@ -21,7 +22,16 @@
       ''
       + body;
   };
+  # The port tuwunel.nix binds the homeserver to, on the loopback address it listens on there.
+  tuwunelPort = lib.head config.services.matrix-tuwunel.settings.global.port;
+  # Federation on 8448 and HTTPS on 443 serve the same homeserver behind the same certificate.
+  matrixVhost = mkVhost ''
+    reverse_proxy [::1]:${toString tuwunelPort}
+  '';
 in {
+  # 8448: the Matrix federation port for server-to-server traffic.
+  networking.firewall.allowedTCPPorts = [8448];
+
   # ejabberd reads this cert off disk, so it is issued by lego rather than Caddy. The apex must stay in it: bunny.enterprises is the XMPP host, so c2s and s2s identity depend on it. Caddy issues the apex web vhost a separate certificate of its own.
   security.acme.certs."bunny.enterprises" = {
     # One SAN certificate covering every ejabberd component subdomain: conference (MUC), proxy (SOCKS5 file transfer), pubsub, and upload (HTTP upload).
@@ -63,5 +73,7 @@ in {
       root * ${element-web}
       file_server
     '';
+    "matrix.bunny.enterprises" = matrixVhost;
+    "matrix.bunny.enterprises:8448" = matrixVhost;
   };
 }
