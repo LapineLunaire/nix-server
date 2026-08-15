@@ -118,6 +118,7 @@
       host = ./modules/host.nix;
       nix-settings = ./modules/nix-settings.nix;
       host-base = ./modules/nixos/host-base;
+      secure-boot = ./modules/nixos/secure-boot.nix;
       security = ./modules/nixos/security.nix;
       trusted-ssh-ingress = ./modules/nixos/trusted-ssh-ingress.nix;
       zfs = ./modules/nixos/zfs.nix;

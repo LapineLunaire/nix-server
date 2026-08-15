@@ -11,6 +11,7 @@
 in {
   imports = [
     outputs.nixosModules.host-base
+    outputs.nixosModules.secure-boot
     outputs.nixosModules.zfs
     # Keeps sshd unreachable from the DMZ, where the guests are peers but not trusted, and from the management network and the sparxie tunnel.
     outputs.nixosModules.trusted-ssh-ingress
