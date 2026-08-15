@@ -60,6 +60,7 @@
     home-manager,
     nixvim,
     impermanence,
+    lanzaboote,
     sops-nix,
     ...
   } @ inputs: let
@@ -118,6 +119,7 @@
       nix-settings = ./modules/nix-settings.nix;
       host-base = ./modules/nixos/host-base;
       security = ./modules/nixos/security.nix;
+      trusted-ssh-ingress = ./modules/nixos/trusted-ssh-ingress.nix;
       zfs = ./modules/nixos/zfs.nix;
       acme = ./modules/nixos/acme.nix;
       auto-update = ./modules/nixos/auto-update.nix;
@@ -155,6 +157,11 @@
     packages = forHostSystems (system: import ./pkgs (pkgsFor system));
 
     nixosConfigurations = {
+      sparkle = mkHost {
+        system = "x86_64-linux";
+        modules = [lanzaboote.nixosModules.lanzaboote ./hosts/sparkle];
+      };
+
       sparxie = mkHost {
         system = "aarch64-linux";
         modules = [./hosts/sparxie];

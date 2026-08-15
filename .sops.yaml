@@ -1,5 +1,6 @@
 # Every key below is that system's SSH host key, converted from /etc/ssh/ssh_host_ed25519_key.pub with ssh-to-age.
 keys:
+  - &sparkle_host age10anc2xygfedadkvlsc6whyurx7plyquxa47w0c9ut728n8ur4vas677ax7
   - &sparxie_host age1tddj97txq5mckvzrs8czekp5lc530rc35yw0mtd3w9qxjjwf4vpsn7s8yl
 
 creation_rules:
@@ -7,3 +8,7 @@ creation_rules:
     key_groups:
       - age:
           - *sparxie_host
+  - path_regex: hosts/sparkle/secrets\.yaml$
+    key_groups:
+      - age:
+          - *sparkle_host
