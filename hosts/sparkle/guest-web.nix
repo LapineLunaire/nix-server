@@ -11,6 +11,10 @@ let
       sub = "auth";
       port = 9091;
     };
+    uptime-kuma = {
+      sub = "up";
+      port = 3001;
+    };
     monitoring = {
       sub = "gf";
       port = 3000;

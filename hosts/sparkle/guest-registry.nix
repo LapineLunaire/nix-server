@@ -14,4 +14,5 @@
     deps = ["postgres"];
   };
   monitoring = {index = 15;};
+  uptime-kuma = {index = 16;};
 }

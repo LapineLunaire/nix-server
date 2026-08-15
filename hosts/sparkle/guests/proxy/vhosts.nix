@@ -17,16 +17,19 @@
     root * /srv/misc
     file_server browse
   '';
-  # One vhost per proxied guest, keyed by guest name. The site address and the upstream port come from the fleet's web endpoints, and the dns guest generates a zone CNAME per vhost. extraAllow lists callers beyond baseAllow; body overrides the default reverse proxy to the guest.
+  # One vhost per proxied guest, keyed by guest name. The site address and the upstream port come from guest-web.nix, and the dns guest generates a zone CNAME per vhost. extraAllow lists callers beyond baseAllow; body overrides the default reverse proxy to the guest.
+  # uptimeKuma in extraAllow is uptime-kuma probing each service through the proxy.
+  uptimeKuma = net.vmAddress.uptime-kuma;
   vmVhosts = {
-    monitoring.extraAllow = [];
-    authelia.extraAllow = [];
-    pgadmin.extraAllow = [];
+    monitoring.extraAllow = [uptimeKuma];
+    authelia.extraAllow = [uptimeKuma];
+    pgadmin.extraAllow = [uptimeKuma];
+    uptime-kuma.extraAllow = [];
   };
   # Vhosts this guest serves itself, keyed by full site address since they have no upstream behind them.
   hostVhosts = {
     "misc.${web.domain}" = {
-      extraAllow = [];
+      extraAllow = [uptimeKuma];
       body = miscFileServer;
     };
   };

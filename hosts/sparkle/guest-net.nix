@@ -5,7 +5,7 @@ let
   names = builtins.attrNames registry;
   vmAddress = builtins.mapAttrs (_: vm: "${dmz.guestPrefix}.${toString vm.index}") registry;
   # Guests allowed to reach postgres on 5432: the DB-backed apps, uptime-kuma for its health check, and pgadmin.
-  postgresClients = ["authelia" "pgadmin"];
+  postgresClients = ["authelia" "pgadmin" "uptime-kuma"];
   # Guests allowed to reach the vault guest's NFSv4 server. The exports name their own clients, since each gets a different export and mode; this list is what the two firewall sites read.
   nfsClients = [];
 in {
