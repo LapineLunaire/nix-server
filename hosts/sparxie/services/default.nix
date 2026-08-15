@@ -10,6 +10,7 @@
     })
     outputs.nixosModules.acme
     outputs.nixosModules.caddy
+    outputs.nixosModules.wireguard-tunnel
     ./database.nix
     ./ejabberd.nix
     ./fail2ban.nix

@@ -13,6 +13,8 @@
   };
 
   inherit (config.caddy) securityHeaders tlsDns;
+  wg = config.host.wireguardTunnel;
+  sparkleTunnelWeb = import ../../sparkle/tunnel-web.nix;
   # Every vhost opens with its own Caddy-issued certificate and the shared security headers.
   mkVhost = body: {
     extraConfig =
@@ -32,7 +34,16 @@ in {
   # 8448: the Matrix federation port for server-to-server traffic.
   networking.firewall.allowedTCPPorts = [8448];
 
-  # ejabberd reads this cert off disk, so it is issued by lego rather than Caddy. The apex must stay in it: bunny.enterprises is the XMPP host, so c2s and s2s identity depend on it. Caddy issues the apex web vhost a separate certificate of its own.
+  sops.templates."caddy-pub-bnnuy-basicauth" = {
+    owner = "caddy";
+    content = ''
+      basic_auth {
+        bnnuy ${config.sops.placeholder."pub-bnnuy-password-hash"}
+      }
+    '';
+  };
+
+  # ejabberd reads this cert off disk, so lego issues it. The apex must stay in it, since bunny.enterprises is the XMPP host and c2s and s2s identity depend on it. Caddy issues the apex web vhost a separate certificate of its own.
   security.acme.certs."bunny.enterprises" = {
     # One SAN certificate covering every ejabberd component subdomain: conference (MUC), proxy (SOCKS5 file transfer), pubsub, and upload (HTTP upload).
     extraDomainNames = [
@@ -75,5 +86,11 @@ in {
     '';
     "matrix.bunny.enterprises" = matrixVhost;
     "matrix.bunny.enterprises:8448" = matrixVhost;
+    "pub.bunny.enterprises" = mkVhost ''
+      import ${config.sops.templates."caddy-pub-bnnuy-basicauth".path}
+      reverse_proxy ${wg.peer.ip}:${toString sparkleTunnelWeb.port} {
+        header_up Host {upstream_hostport}
+      }
+    '';
   };
 }

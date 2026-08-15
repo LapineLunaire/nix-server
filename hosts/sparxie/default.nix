@@ -26,6 +26,17 @@ in {
   host.acmeEmail = "certs@lunaire.eu";
   host.dnsApiTokenSecret = "bunny-enterprises-dns-api-token";
 
+  # The WireGuard tunnel to sparkle, a /31 point-to-point pair. sparxie listens on its static VPS address and sparkle dials in, so listenPort is set here and endpoint is not.
+  host.wireguardTunnel = {
+    prefixLength = "31";
+    listenPort = wan.wireguardPort;
+    local.ip = "10.73.212.1";
+    peer = {
+      ip = "10.73.212.0";
+      publicKey = "fU36EC/ymy4d1XwJCfqAXKEX8dRK/WuMFBbh6OtKBRM=";
+    };
+  };
+
   # sshd accepts connections only from the external addresses in these secrets. Nothing is exempt, since the veto chain runs ahead of the firewall's own loopback accept. A stale whitelist is recovered through the Hetzner console.
   ipWhitelist.ssh = {
     ports = [22];

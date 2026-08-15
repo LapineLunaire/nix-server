@@ -9,5 +9,7 @@
     secrets."tuwunel-registration-token" = {};
     secrets."ssh-allowed-ips-v4".reloadUnits = ["nftables.service"];
     secrets."ssh-allowed-ips-v6".reloadUnits = ["nftables.service"];
+    secrets."pub-bnnuy-password-hash" = {};
+    secrets."wireguard-private-key" = {};
   };
 }

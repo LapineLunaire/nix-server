@@ -123,9 +123,10 @@
       caddy = ./modules/nixos/caddy.nix;
       ip-whitelist = ./modules/nixos/ip-whitelist.nix;
       postgresql-passwords = ./modules/nixos/postgresql-passwords.nix;
+      wireguard-tunnel = ./modules/nixos/wireguard-tunnel.nix;
     };
 
-    # Functions from a parameter set to a module, rather than modules themselves. Call them with their arguments instead of listing them in imports.
+    # Functions from a parameter set to a module. Call them with their arguments in imports.
     lib = {
       # Takes { pool, startAt }.
       mkBorgBackup = import ./modules/nixos/borg-backup.nix;
