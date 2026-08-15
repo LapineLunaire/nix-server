@@ -41,7 +41,23 @@ in {
         password: '${config.sops.placeholder."authelia-smtp-password"}'
     identity_providers:
       oidc:
-        clients: []
+        clients:
+          - client_id: pgadmin
+            client_name: pgAdmin
+            client_secret: '${config.sops.placeholder."pgadmin-oidc-client-secret-hash"}'
+            public: false
+            authorization_policy: two_factor
+            redirect_uris:
+              - ${web.origin.pgadmin}/oauth2/authorize
+            scopes:
+              - openid
+              - profile
+              - email
+            userinfo_signed_response_alg: none
+            grant_types:
+              - authorization_code
+            response_types:
+              - code
   '';
 
   services.redis.servers.authelia = {

@@ -3,6 +3,7 @@ keys:
   - &sparkle_host age10anc2xygfedadkvlsc6whyurx7plyquxa47w0c9ut728n8ur4vas677ax7
   - &sparxie_host age1tddj97txq5mckvzrs8czekp5lc530rc35yw0mtd3w9qxjjwf4vpsn7s8yl
   - &vm_proxy age1zqe754t3w9pct9g3rtkx06njw9l5s7mj9xc8m5qrd2hp4h8d0cjsp04g3t
+  - &vm_pgadmin age17a03gftgln2x7zwrs88w6hgeeupj02me340jh6xpwxflt3llnylq5h88km
   - &vm_authelia age1c7juqjgugz6khypxkplryn2m8pqsuvzd2puw7thz6maf8yuqupgs6d6tru
   - &vm_postgres age1mv3fa9s8gkr33gf7yvt2jatucz96vp7tt5d03q9m9frtt3yeduystxap85
   - &vm_monitoring age1np3n40swg3wj74jx7v54fjellr4ynxgtdhg05u4denmqu24n8dnsykdupd
@@ -26,6 +27,11 @@ creation_rules:
     key_groups:
       - age:
           - *vm_postgres
+          - *sparkle_host
+  - path_regex: hosts/sparkle/guests/pgadmin/secrets\.yaml$
+    key_groups:
+      - age:
+          - *vm_pgadmin
           - *sparkle_host
   - path_regex: hosts/sparkle/guests/authelia/secrets\.yaml$
     key_groups:

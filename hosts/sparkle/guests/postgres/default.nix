@@ -40,6 +40,7 @@ in {
     authentication = ''
       local all             postgres                        peer
       host  authelia        authelia    ${net.vmAddress.authelia}/32 scram-sha-256
+      host  all             carmilla    ${net.vmAddress.pgadmin}/32 scram-sha-256
     '';
   };
 

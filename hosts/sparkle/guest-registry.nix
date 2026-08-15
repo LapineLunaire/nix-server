@@ -8,6 +8,7 @@
     deps = ["dns"];
   };
   postgres = {index = 12;};
+  pgadmin = {index = 13;};
   authelia = {
     index = 14;
     deps = ["postgres"];

@@ -190,6 +190,7 @@
       auto-update = ./modules/nixos/auto-update.nix;
       caddy = ./modules/nixos/caddy.nix;
       ip-whitelist = ./modules/nixos/ip-whitelist.nix;
+      microvm-docker-common = ./modules/nixos/microvm/docker-common.nix;
       postgresql-passwords = ./modules/nixos/postgresql-passwords.nix;
       wireguard-tunnel = ./modules/nixos/wireguard-tunnel.nix;
     };

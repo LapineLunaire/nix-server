@@ -3,6 +3,10 @@
 let
   domain = "lunaire.moe";
   endpoints = {
+    pgadmin = {
+      sub = "pga";
+      port = 5000;
+    };
     authelia = {
       sub = "auth";
       port = 9091;

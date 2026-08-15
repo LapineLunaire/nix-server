@@ -21,6 +21,7 @@
   vmVhosts = {
     monitoring.extraAllow = [];
     authelia.extraAllow = [];
+    pgadmin.extraAllow = [];
   };
   # Vhosts this guest serves itself, keyed by full site address since they have no upstream behind them.
   hostVhosts = {
