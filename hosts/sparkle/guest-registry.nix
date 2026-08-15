@@ -31,4 +31,5 @@
   kavita = {index = 23;};
   qbittorrent = {index = 24;};
   homeassistant = {index = 25;};
+  unifi = {index = 26;};
 }

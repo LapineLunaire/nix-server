@@ -6,6 +6,7 @@ keys:
   - &vm_pgadmin age17a03gftgln2x7zwrs88w6hgeeupj02me340jh6xpwxflt3llnylq5h88km
   - &vm_authelia age1c7juqjgugz6khypxkplryn2m8pqsuvzd2puw7thz6maf8yuqupgs6d6tru
   - &vm_postgres age1mv3fa9s8gkr33gf7yvt2jatucz96vp7tt5d03q9m9frtt3yeduystxap85
+  - &vm_unifi age1frcpdkh9l9cqerpf9f85yn33l0g6j0ftjvu0ltv72h4zxy60hdssdmukry
   - &vm_kavita age14vvw895gyxwkqx63kra9kcserxrf8e98gf2dadl6qr4xc0l3efyqz7ukwk
   - &vm_qbittorrent age1tk9zldmthvyymuxvdpt6w7tste6gnk45k9y3usmt7p4jhzc5vfrq0jwh7q
   - &vm_ci_runner age1gx2wj0fed39sevrpnmxs6e24apdcw53mdv8pjpu5zeah7nhaad7snzrawu
@@ -78,4 +79,9 @@ creation_rules:
     key_groups:
       - age:
           - *vm_qbittorrent
+          - *sparkle_host
+  - path_regex: hosts/sparkle/guests/unifi/secrets\.yaml$
+    key_groups:
+      - age:
+          - *vm_unifi
           - *sparkle_host

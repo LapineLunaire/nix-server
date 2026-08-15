@@ -95,6 +95,16 @@ in {
         iifname "sfp0" oifname "vault" ip daddr 224.0.0.251 udp dport 5353 accept
         iifname "sfp0" oifname "vault" ip daddr 239.255.255.250 udp dport 3702 accept
 
+        # UniFi controller reaches the APs on the management network for adoption, provisioning, and firmware pushes.
+        iifname "unifi" oifname "sfp0" ip daddr ${dmz.management} accept
+        # UniFi APs reach the controller for L3 inform and adoption and for service traffic.
+        iifname "sfp0" oifname "unifi" ip saddr ${dmz.management} tcp dport { 8080, 8443, 6789, 8880, 8843 } accept
+        iifname "sfp0" oifname "unifi" ip saddr ${dmz.management} udp dport { 3478, 10001 } accept
+        # Admins reach the controller web UI directly, with no reverse proxy in front of it.
+        iifname "sfp0" oifname "unifi" ip saddr { ${trusted} } tcp dport 443 accept
+        # uptime-kuma probes that same UI. Guest-to-guest frames cross two taps, and the egress rules match on sfp0, so this probe takes a rule of its own.
+        iifname "uptime-kuma" oifname "unifi" tcp dport 443 accept
+
         # The resolver for the whole network: every guest and every client on the segment reaches it, unfiltered by source.
         iifname { ${guests} } oifname "dns" udp dport 53 accept
         iifname { ${guests} } oifname "dns" tcp dport 53 accept

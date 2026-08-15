@@ -63,6 +63,7 @@
     lanzaboote,
     microvm,
     sops-nix,
+    unifi-os-server,
     vpn-confinement,
     ...
   } @ inputs: let
@@ -133,6 +134,7 @@
         # Guests needing extra flake-input modules name them here.
         extraModules = {
           qbittorrent = [vpn-confinement.nixosModules.default];
+          unifi = [unifi-os-server.nixosModules.unifi-os-server];
         };
       };
     };
