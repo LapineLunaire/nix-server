@@ -20,6 +20,7 @@ in {
     ./sops.nix
     ./services
     ./dmz-bridge.nix
+    ./auto-update.nix
     (outputs.lib.mkMicrovmHost {
       registry = import ./guest-registry.nix;
       inherit (dmz) bridge;
