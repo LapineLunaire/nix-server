@@ -12,9 +12,10 @@
     tpm2-tools
   ];
 
-  # tctiEnvironment sets TPM2TOOLS_TCTI, so tpm2-tools commands work without being given a TCTI string.
+  # tctiEnvironment sets TPM2TOOLS_TCTI and TPM2_PKCS11_TCTI, so the tooling works without being given a TCTI string.
   security.tpm2 = {
     enable = true;
+    pkcs11.enable = true;
     tctiEnvironment.enable = true;
   };
 }
