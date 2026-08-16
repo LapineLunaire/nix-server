@@ -27,10 +27,9 @@ in {
     default = ''
       tls {
         dns cloudflare {env.CF_API_TOKEN}
-        resolvers 1.1.1.1
       }
     '';
-    description = "Caddy snippet putting the vhost's certificate on the Cloudflare DNS-01 challenge, spliced into every vhost by the host's proxy config. resolvers overrides the system resolver, which on these systems is a split-horizon DNS that never holds the public _acme-challenge record.";
+    description = "Caddy snippet putting the vhost's certificate on the Cloudflare DNS-01 challenge, spliced into every vhost by the host's proxy config.";
   };
 
   config = {

@@ -19,8 +19,6 @@ in {
       keyType = "ec384";
       dnsProvider = "cloudflare";
       environmentFile = config.sops.templates."acme-dns-api-token.env".path;
-      # Resolve the challenge record against a public resolver. The dns guest answers these zones from its local file, which carries no _acme-challenge record.
-      dnsResolver = "1.1.1.1:53";
     };
   };
 }

@@ -57,7 +57,7 @@ in {
   systemd.services.caddy.wants = ["wg-quick-wg0.service"];
 
   # The Cloudflare API and everything else the guests' vhosts reach over HTTPS, whose addresses move behind CDNs.
-  # DNS-01 resolution goes to Cloudflare's resolver: caddy.tlsDns sets `resolvers 1.1.1.1`, because the split-horizon zone answers lunaire.moe from its local file, which carries no _acme-challenge record. The propagation check that follows queries the zone's authoritative nameservers directly, and their addresses move, so this flow names no destination. TCP as well as UDP, since a truncated answer falls back to it.
+  # DNS-01 resolution goes through the dns guest, whose lunaire.moe zone falls through to its forwarder for any name its local file does not answer, _acme-challenge among them. The propagation check that follows queries the zone's authoritative nameservers directly, and their addresses move, so this flow names no destination. TCP as well as UDP, since a truncated answer falls back to it.
   microvmGuest.egress = [
     {
       proto = "tcp";
