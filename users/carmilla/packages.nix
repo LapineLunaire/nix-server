@@ -3,7 +3,6 @@
   home.packages = with pkgs; [
     curl
     fd
-    git
     iperf3
     jq
     ldns

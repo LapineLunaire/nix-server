@@ -56,7 +56,6 @@
   outputs = {
     self,
     nixpkgs,
-    nixpkgs-unstable,
     home-manager,
     nixvim,
     impermanence,
@@ -71,29 +70,21 @@
 
     forHostSystems = nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux"];
 
-    # Every nixpkgs instance carries pkgs/ as an overlay, so a package of ours is reachable as pkgs.<name> from any module.
-    mkPkgs = np: system:
-      import np {
+    # The nixpkgs instance carries pkgs/ as an overlay, so a package of ours is reachable as pkgs.<name> from any module.
+    pkgsFor = system:
+      import nixpkgs {
         inherit system;
         overlays = [(final: _prev: import ./pkgs final)];
         config.allowUnfree = true;
       };
-    pkgsFor = mkPkgs nixpkgs;
-    pkgsUnstableFor = mkPkgs nixpkgs-unstable;
 
-    # Every NixOS and home-manager module also receives a nixpkgs-unstable instance carrying the same overlay, for pulling individual packages ahead of their nixpkgs.
-    specialArgsFor = system: {
-      inherit inputs outputs;
-      pkgsUnstable = pkgsUnstableFor system;
-    };
+    specialArgs = {inherit inputs outputs;};
 
     # A full host: impermanence, sops, and home-manager under the host's own modules.
     mkHost = {
       system,
       modules,
-    }: let
-      specialArgs = specialArgsFor system;
-    in
+    }:
       nixpkgs.lib.nixosSystem {
         inherit specialArgs;
         modules =
@@ -143,7 +134,7 @@
     # The guest data is passed through specialArgs, so a guest reads net.vmAddress.<name> and holds no path to its own location.
     mkGuest = hv: name:
       nixpkgs.lib.nixosSystem {
-        specialArgs = specialArgsFor hv.system // {inherit (hv) dmz net web trustedSubnets tunnelWeb;};
+        specialArgs = specialArgs // {inherit (hv) dmz net web trustedSubnets tunnelWeb;};
         modules =
           [
             {nixpkgs.pkgs = pkgsFor hv.system;}
@@ -182,10 +173,14 @@
       then throw "guest name declared by more than one hypervisor: ${nixpkgs.lib.concatStringsSep ", " duplicates}"
       else nixpkgs.lib.foldl' (a: b: a // b) {} perHypervisor;
   in {
-    # Shared modules addressable as outputs.nixosModules.<name> from any nesting depth.
-    nixosModules = {
+    # Platform-neutral modules, read by the NixOS base and by the microVM guest base.
+    modules = {
       host = ./modules/host.nix;
       nix-settings = ./modules/nix-settings.nix;
+    };
+
+    # Shared modules addressable as outputs.nixosModules.<name> from any nesting depth.
+    nixosModules = {
       host-base = ./modules/nixos/host-base;
       secure-boot = ./modules/nixos/secure-boot.nix;
       security = ./modules/nixos/security.nix;

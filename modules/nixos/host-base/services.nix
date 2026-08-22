@@ -1,5 +1,6 @@
 # The services every full host runs: fstrim, fwupd, NTS-authenticated chrony, and sshd, plus the sops age key derived from the persisted host key.
 {...}: {
+  services.dbus.implementation = "broker";
   services.fstrim.enable = true;
   services.fwupd.enable = true;
 

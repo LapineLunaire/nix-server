@@ -6,8 +6,8 @@
   ...
 }: {
   imports = [
-    outputs.nixosModules.host
-    outputs.nixosModules.nix-settings
+    outputs.modules.host
+    outputs.modules.nix-settings
     outputs.nixosModules.security
     ./packages.nix
     ./persistence.nix
@@ -29,7 +29,7 @@
     kernel.sysctl."vm.swappiness" = 100;
   };
 
-  # doas for full hosts: wheel escalates with a password, cached per session.
+  # wheel escalates with doas, and persist caches the authentication for a period after a successful prompt.
   security.doas = {
     enable = true;
     extraRules = [
@@ -39,6 +39,7 @@
       }
     ];
   };
+  # doas-sudo-shim installs one binary, named sudo, that calls doas. modules/nixos/security.nix disables the real sudo.
   environment.systemPackages = [pkgs.doas-sudo-shim];
 
   security.polkit.enable = true;

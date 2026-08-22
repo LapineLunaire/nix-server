@@ -16,8 +16,8 @@
   ...
 }: {
   imports = [
-    outputs.nixosModules.host
-    outputs.nixosModules.nix-settings
+    outputs.modules.host
+    outputs.modules.nix-settings
     outputs.nixosModules.security
   ];
 

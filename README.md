@@ -27,9 +27,9 @@ users/carmilla/ The account and its home-manager modules
 pkgs/           The bunny.enterprises site Caddy serves
 ```
 
-Shared modules are reached as `outputs.nixosModules.<name>`, which works from any nesting depth. The guest data files reach a guest as module arguments set by `mkGuest`, so a guest declares the ones it uses and names `net.vmAddress.postgres`, holding no path to its own location. The module factories that take arguments (`mkBorgBackup`, `mkMicrovmGuest`, `mkMicrovmIdentity`, `mkMicrovmHost`) live under `outputs.lib` instead.
+Shared modules are reached as `outputs.nixosModules.<name>`, and the two platform-neutral ones as `outputs.modules.<name>`, which works from any nesting depth. The guest data files reach a guest as module arguments set by `mkGuest`, so a guest declares the ones it uses and names `net.vmAddress.postgres`, holding no path to its own location. The module factories that take arguments (`mkBorgBackup`, `mkMicrovmGuest`, `mkMicrovmIdentity`, `mkMicrovmHost`) live under `outputs.lib` instead.
 
-Systems are built against nixos-26.05, and every NixOS and home-manager module additionally receives `pkgsUnstable`, a nixos-unstable instance carrying the same overlays as `pkgs`. Use it per package, as `environment.systemPackages = [pkgsUnstable.foo];`.
+Systems are built against nixos-26.05. The `nixpkgs-unstable` input exists only for the inputs that follow it (rust-overlay, lanzaboote, and unifi-os-server); every NixOS and home-manager module sees the one nixos-26.05 instance.
 
 ## Usage
 

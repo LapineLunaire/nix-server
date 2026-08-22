@@ -11,13 +11,28 @@
 
   programs.direnv = {
     enable = true;
-    enableZshIntegration = true;
     nix-direnv.enable = true;
   };
 
-  programs.fzf = {
+  programs.fzf.enable = true;
+
+  # Behaviour only: this account authors no commits here, so it carries no identity or signing key.
+  programs.git = {
     enable = true;
-    enableZshIntegration = true;
+    settings = {
+      core = {
+        editor = "nvim";
+        pager = "nvimpager";
+      };
+      pull.rebase = true;
+      init.defaultBranch = "main";
+      color.ui = "auto";
+      push.autoSetupRemote = true;
+      rerere.enabled = true;
+      diff.algorithm = "histogram";
+      merge.conflictstyle = "zdiff3"; # zdiff3 includes the merge base in conflict markers
+      branch.sort = "-committerdate";
+    };
   };
 
   programs.btop = {
@@ -46,6 +61,11 @@
       undofile = true;
       clipboard = "unnamedplus";
     };
+
+    colorschemes.gruvbox = {
+      enable = true;
+      settings.contrast = "hard";
+    };
   };
 
   programs.tealdeer = {
@@ -60,17 +80,11 @@
     baseIndex = 1;
   };
 
-  programs.zoxide = {
-    enable = true;
-    enableZshIntegration = true;
-  };
+  programs.zoxide.enable = true;
 
   programs.zsh = {
     enable = true;
-    history = {
-      path = "${config.xdg.dataHome}/zsh/history";
-      share = true;
-    };
+    history.path = "${config.xdg.dataHome}/zsh/history";
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
     initContent = ''
