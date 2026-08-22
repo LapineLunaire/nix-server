@@ -39,15 +39,29 @@ jobs:
             nix eval ".#nixosConfigurations.${host}.config.system.build.toplevel.drvPath"
           done
 
-      # The caddy package pins a fixed-output hash that goes stale whenever nixpkgs bumps caddy, which evaluation cannot see and the 03:00 auto-upgrade would hit first. sparkle alone is enough: both hosts share that source derivation, and sparxie is aarch64, which this runner refuses to build.
-      - name: Build caddy with plugins
+      # A go, xcaddy or caddy bump changes the vendored tree behind the plugin build's fixed-output hash, which evaluation cannot see. --rebuild is what makes this a check: a fixed-output path already in the store is never rebuilt. The proxy guest carries this derivation on x86_64; sparxie carries the same one on aarch64, which this runner refuses to build.
+      - name: Refresh the caddy plugin hash
         if: steps.check.outputs.changed == 'true'
-        run: nix build --no-link ".#nixosConfigurations.sparkle.config.services.caddy.package"
+        run: |
+          set -o pipefail
+          target=".#nixosConfigurations.proxy.config.services.caddy.package.src"
+          if err=$(nix build --no-link --rebuild "$target" 2>&1); then
+            exit 0
+          fi
+          got=$(printf '%s\n' "$err" | sed -n 's/^ *got: *\(sha256-[A-Za-z0-9+/=]\{1,\}\).*/\1/p' | head -1)
+          if [ -z "$got" ]; then
+            printf '%s\n' "$err" >&2
+            exit 1
+          fi
+          old=$(sed -n 's/^ *hash = "\(sha256-[^"]*\)";$/\1/p' modules/nixos/caddy.nix | head -1)
+          sed -i "s|\"$old\"|\"$got\"|" modules/nixos/caddy.nix
+          echo "caddy plugin hash refreshed: $old -> $got"
+          nix build --no-link --rebuild "$target"
 
       - name: Commit and push
         if: steps.check.outputs.changed == 'true'
         uses: ./.forgejo/actions/commit-push
         with:
-          paths: flake.lock
+          paths: flake.lock modules/nixos/caddy.nix
           message: "flake: update inputs"
           ssh-signing-key: ${{ secrets.CI_SIGNING_KEY }}

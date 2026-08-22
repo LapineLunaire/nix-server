@@ -16,7 +16,7 @@
 
   programs.fzf.enable = true;
 
-  # Behaviour only: this account authors no commits here, so it carries no identity or signing key.
+  # Behaviour only: this account authors no commits, so it carries no identity or signing key.
   programs.git = {
     enable = true;
     settings = {
