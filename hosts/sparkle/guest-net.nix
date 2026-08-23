@@ -12,6 +12,8 @@ in {
   inherit vmAddress;
   # Every guest's tap interface name, which is its guest name, comma-joined for nftables set literals. On a bridged segment the forward chain matches bridge ports, so these are what its rules name.
   tapsNft = builtins.concatStringsSep ", " (map (name: "\"${name}\"") names);
+  # Each guest's tap paired with its address, for the anti-spoof set in dmz-bridge.nix. A tap carries one guest, so any other source arriving on it is forged.
+  guestIdentityNft = builtins.concatStringsSep ", " (map (name: "\"${name}\" . ${vmAddress.${name}}") names);
   # The postgres client addresses comma-joined for nftables set literals, read by the host forward chain and by the postgres guest's own input chain.
   postgresClientsNft = builtins.concatStringsSep ", " (map (name: vmAddress.${name}) postgresClients);
   # The port the postgres guest listens on: its own listen_addresses and input chain, the host forward rule admitting the clients above, and each client's connection string.

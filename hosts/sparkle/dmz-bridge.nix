@@ -16,6 +16,8 @@
   registry = import ./guest-registry.nix;
   web = import ./guest-web.nix;
   guests = net.tapsNft;
+  # Each tap paired with the MAC identity.nix gave its guest, read back from the guest's own config so the two cannot drift.
+  guestMacsNft = lib.concatStringsSep ", " (lib.mapAttrsToList (name: _: "\"${name}\" . ${(builtins.head outputs.nixosConfigurations.${name}.config.microvm.interfaces).mac}") registry);
   # Private space, excluded from any flow that names no destination of its own.
   privateSpace = "{ 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16 }";
   # One accept per declared flow. A flow naming no destination keeps the private-space exclusion, which confines it to addresses outside the LAN and the management network.
@@ -64,6 +66,40 @@ in {
   networking.nftables.tables.dmz = {
     family = "bridge";
     content = ''
+      # Each tap paired with its guest's address, read by the antispoof chain.
+      set guest-identity {
+        type ifname . ipv4_addr
+        elements = { ${net.guestIdentityNft} }
+      }
+
+      # The same pairing for MACs.
+      set guest-mac {
+        type ifname . ether_addr
+        elements = { ${guestMacsNft} }
+      }
+
+      # A tap carries one guest, so its source address is fixed and every rule reading ip saddr from a tap rests on this chain.
+      # prerouting at -300 runs ahead of bridge conntrack at -200 and of the forward/input split, so a forged frame reaches neither.
+      chain antispoof {
+        type filter hook prerouting priority -300; policy accept;
+
+        # Only the taps are pinned; every other source arrives over sfp0.
+        iifname != { ${guests} } accept
+
+        # The bridge learns from source MACs, so dropping a forged one here is what keeps a guest from moving another guest's FDB entry onto its own port. Learning stays on: pinning the FDB from networkd is not possible, since its entries are NUD_PERMANENT and the bridge delivers those to the host instead of the port.
+        iifname . ether saddr != @guest-mac goto spoof-drop
+
+        ether type ip iifname . ip saddr != @guest-identity goto spoof-drop
+        # A forged sender in the ARP payload poisons peer caches whatever the frame's source MAC says.
+        ether type arp iifname . arp saddr ip != @guest-identity goto spoof-drop
+      }
+
+      # Its own chain: in one whose policy is accept, the log rule would match every legitimate frame.
+      chain spoof-drop {
+        limit rate 10/second log prefix "guest-spoof-drop "
+        drop
+      }
+
       chain forward {
         type filter hook forward priority filter; policy drop;
 
