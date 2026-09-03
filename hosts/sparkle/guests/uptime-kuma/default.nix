@@ -15,6 +15,11 @@ in {
     {proto = "tcp";}
     {proto = "udp";}
     {proto = "icmp";}
+    # The Nox / Carmilla site-to-site VPN link.
+    {
+      proto = "icmp";
+      destinations = ["10.69.69.69"];
+    }
   ];
 
   services.uptime-kuma = {
