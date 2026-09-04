@@ -22,7 +22,7 @@ hosts/          Per-host hardware, services, secrets, and persistence declaratio
 modules/        host.nix and nix-settings.nix are imported by hosts and guests alike
   nixos/host-base/   Boot, escalation, locale, firewall, hardening, persistence, temp dirs
   nixos/microvm/     The generic guest framework: the guest base, the host wiring, and guest identity
-  nixos/*.nix        Opt-in modules: caddy, zfs, borg, wireguard, auto-update, ip-whitelist, ...
+  nixos/*.nix        Opt-in modules: caddy, zfs, borg, wireguard, auto-update, ssh-ip-whitelist, ...
 users/carmilla/ The account and its home-manager modules
 pkgs/           The bunny.enterprises site Caddy serves
 ```

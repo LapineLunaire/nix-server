@@ -1,5 +1,4 @@
 {
-  config,
   outputs,
   pkgs,
   ...
@@ -8,7 +7,8 @@
 in {
   imports = [
     outputs.nixosModules.host-base
-    outputs.nixosModules.ip-whitelist
+    # sshd accepts connections only from the external addresses in the whitelist secrets. A stale whitelist is recovered through the Hetzner console.
+    outputs.nixosModules.ssh-ip-whitelist
     outputs.nixosModules.zfs
     ./hardware-configuration.nix
     ./sops.nix
@@ -36,13 +36,6 @@ in {
       ip = "10.73.212.0";
       publicKey = "fU36EC/ymy4d1XwJCfqAXKEX8dRK/WuMFBbh6OtKBRM=";
     };
-  };
-
-  # sshd accepts connections only from the external addresses in these secrets. Nothing is exempt, since the veto chain runs ahead of the firewall's own loopback accept. A stale whitelist is recovered through the Hetzner console.
-  ipWhitelist.ssh = {
-    ports = [22];
-    ipv4File = config.sops.secrets."ssh-allowed-ips-v4".path;
-    ipv6File = config.sops.secrets."ssh-allowed-ips-v6".path;
   };
 
   # Static network config per Hetzner VPS requirements (https://docs.hetzner.com/cloud/servers/static-configuration/).

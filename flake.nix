@@ -189,9 +189,9 @@
       acme = ./modules/nixos/acme.nix;
       auto-update = ./modules/nixos/auto-update.nix;
       caddy = ./modules/nixos/caddy.nix;
-      ip-whitelist = ./modules/nixos/ip-whitelist.nix;
       microvm-docker-common = ./modules/nixos/microvm/docker-common.nix;
       postgresql-passwords = ./modules/nixos/postgresql-passwords.nix;
+      ssh-ip-whitelist = ./modules/nixos/ssh-ip-whitelist.nix;
       wireguard-tunnel = ./modules/nixos/wireguard-tunnel.nix;
     };
 
