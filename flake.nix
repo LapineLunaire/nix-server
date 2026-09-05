@@ -70,11 +70,13 @@
 
     forHostSystems = nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux"];
 
+    overlays = import ./overlays;
+
     # The nixpkgs instance carries pkgs/ as an overlay, so a package of ours is reachable as pkgs.<name> from any module.
     pkgsFor = system:
       import nixpkgs {
         inherit system;
-        overlays = [(final: _prev: import ./pkgs final)];
+        overlays = [overlays.additions overlays.modifications];
         config.allowUnfree = true;
       };
 

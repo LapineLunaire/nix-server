@@ -1,0 +1,51 @@
+mv: match GNU's writable_destination when deciding whether to prompt
+
+GNU copy.c treats a destination as writable when it is a symlink, when the process
+can write any file, or when faccessat grants W_OK for the effective ids:
+
+    static bool
+    writable_destination (int dst_dirfd, char const *dst_relname, mode_t mode)
+    {
+      return (S_ISLNK (mode)
+              || can_write_any_file ()
+              || faccessat (dst_dirfd, dst_relname, W_OK, AT_EACCESS) == 0);
+    }
+
+is_writable followed symlinks and tested the owner write bit instead, so it prompted
+for a symlink pointing at a read-only file and prompted for root. NixOS activation
+hits both when it replaces /bin/sh and /usr/bin/env, symlinks into 0555 store paths,
+as root.
+
+https://github.com/uutils/coreutils/issues/11321
+
+--- a/src/uu/mv/src/mv.rs
++++ b/src/uu/mv/src/mv.rs
+@@ -1553,13 +1553,22 @@
+ /// Check if file is writable, returning the mode for potential reuse.
+ #[cfg(unix)]
+ fn is_writable(path: &Path) -> (bool, Option<u32>) {
+-    if let Ok(metadata) = path.metadata() {
+-        let mode = metadata.permissions().mode();
+-        // Check if user write bit is set
+-        ((mode & 0o200) != 0, Some(mode))
+-    } else {
+-        (false, None) // If we can't get metadata, prompt user to be safe
++    use std::ffi::CString;
++    use std::os::unix::ffi::OsStrExt;
++
++    let Ok(metadata) = path.symlink_metadata() else {
++        return (false, None); // If we can't get metadata, prompt user to be safe
++    };
++    let mode = metadata.permissions().mode();
++    // A symlink is replaced rather than written through, and root writes regardless of the mode bits.
++    if metadata.file_type().is_symlink() || unsafe { libc::geteuid() } == 0 {
++        return (true, Some(mode));
+     }
++    // Ask the kernel about the effective ids rather than reading the owner write bit.
++    let writable = CString::new(path.as_os_str().as_bytes()).is_ok_and(|c_path| unsafe {
++        libc::faccessat(libc::AT_FDCWD, c_path.as_ptr(), libc::W_OK, libc::AT_EACCESS) == 0
++    });
++    (writable, Some(mode))
+ }
+ 
+ /// Check if file is writable.

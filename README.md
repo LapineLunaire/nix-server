@@ -25,6 +25,8 @@ modules/        host.nix and nix-settings.nix are imported by hosts and guests a
   nixos/*.nix        Opt-in modules: caddy, zfs, borg, wireguard, auto-update, ssh-ip-whitelist, ...
 users/carmilla/ The account and its home-manager modules
 pkgs/           The bunny.enterprises site Caddy serves
+overlays/       additions (pkgs/) and modifications (overridden nixpkgs packages)
+  patches/        source patches applied by the modifications overlay
 ```
 
 Shared modules are reached as `outputs.nixosModules.<name>`, and the two platform-neutral ones as `outputs.modules.<name>`, which works from any nesting depth. The guest data files reach a guest as module arguments set by `mkGuest`, so a guest declares the ones it uses and names `net.vmAddress.postgres`, holding no path to its own location. The module factories that take arguments (`mkBorgBackup`, `mkMicrovmGuest`, `mkMicrovmIdentity`, `mkMicrovmHost`) live under `outputs.lib` instead.
