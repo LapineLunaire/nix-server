@@ -4,9 +4,7 @@
   lib,
   pkgs,
   ...
-}: let
-  tokenSecret = config.host.dnsApiTokenSecret;
-in {
+}: {
   options.caddy.securityHeaders = lib.mkOption {
     type = lib.types.str;
     readOnly = true;
@@ -32,7 +30,9 @@ in {
     description = "Caddy snippet putting the vhost's certificate on the Cloudflare DNS-01 challenge, spliced into every vhost by the host's proxy config.";
   };
 
-  config = {
+  config = let
+    tokenSecret = config.host.dnsApiTokenSecret;
+  in {
     networking.firewall.allowedTCPPorts = [
       80
       443

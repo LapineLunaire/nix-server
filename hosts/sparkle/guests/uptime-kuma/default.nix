@@ -2,8 +2,7 @@
   net,
   web,
   ...
-}: let
-in {
+}: {
   microvm = {
     vcpu = 2;
     mem = 1024;

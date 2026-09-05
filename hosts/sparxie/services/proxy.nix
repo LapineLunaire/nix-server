@@ -4,33 +4,7 @@
   lib,
   pkgs,
   ...
-}: let
-  element-web = pkgs.element-web.override {
-    conf.default_server_config."m.homeserver" = {
-      base_url = "https://matrix.bunny.enterprises";
-      server_name = "bunny.enterprises";
-    };
-  };
-
-  inherit (config.caddy) securityHeaders tlsDns;
-  wg = config.host.wireguardTunnel;
-  sparkleTunnelWeb = import ../../sparkle/tunnel-web.nix;
-  # Every vhost opens with its own Caddy-issued certificate and the shared security headers.
-  mkVhost = body: {
-    extraConfig =
-      ''
-        ${tlsDns}
-        ${securityHeaders}
-      ''
-      + body;
-  };
-  # The port tuwunel.nix binds the homeserver to, on the loopback address it listens on there.
-  tuwunelPort = lib.head config.services.matrix-tuwunel.settings.global.port;
-  # Federation on 8448 and HTTPS on 443 serve the same homeserver behind the same certificate.
-  matrixVhost = mkVhost ''
-    reverse_proxy [::1]:${toString tuwunelPort}
-  '';
-in {
+}: {
   # 8448: the Matrix federation port for server-to-server traffic.
   networking.firewall.allowedTCPPorts = [8448];
 
@@ -62,7 +36,33 @@ in {
   users.groups.bunny-cert = {};
   users.users.ejabberd.extraGroups = ["bunny-cert"];
 
-  services.caddy.virtualHosts = {
+  services.caddy.virtualHosts = let
+    element-web = pkgs.element-web.override {
+      conf.default_server_config."m.homeserver" = {
+        base_url = "https://matrix.bunny.enterprises";
+        server_name = "bunny.enterprises";
+      };
+    };
+
+    inherit (config.caddy) securityHeaders tlsDns;
+    wg = config.host.wireguardTunnel;
+    sparkleTunnelWeb = import ../../sparkle/tunnel-web.nix;
+    # Every vhost opens with its own Caddy-issued certificate and the shared security headers.
+    mkVhost = body: {
+      extraConfig =
+        ''
+          ${tlsDns}
+          ${securityHeaders}
+        ''
+        + body;
+    };
+    # The port tuwunel.nix binds the homeserver to, on the loopback address it listens on there.
+    tuwunelPort = lib.head config.services.matrix-tuwunel.settings.global.port;
+    # Federation on 8448 and HTTPS on 443 serve the same homeserver behind the same certificate.
+    matrixVhost = mkVhost ''
+      reverse_proxy [::1]:${toString tuwunelPort}
+    '';
+  in {
     "bunny.enterprises" = mkVhost ''
       root * ${pkgs.bunny-web}
 

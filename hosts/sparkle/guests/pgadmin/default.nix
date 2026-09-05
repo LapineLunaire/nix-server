@@ -4,8 +4,7 @@
   web,
   outputs,
   ...
-}: let
-in {
+}: {
   imports = [outputs.nixosModules.microvm-docker-common ./sops.nix];
 
   microvm = {

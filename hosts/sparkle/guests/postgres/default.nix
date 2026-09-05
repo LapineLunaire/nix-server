@@ -5,8 +5,7 @@
   outputs,
   pkgs,
   ...
-}: let
-in {
+}: {
   imports = [outputs.nixosModules.postgresql-passwords ./sops.nix];
 
   microvm = {

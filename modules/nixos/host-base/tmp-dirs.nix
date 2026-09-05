@@ -3,20 +3,7 @@
   config,
   lib,
   ...
-}: let
-  mount = {
-    device = "none";
-    fsType = "tmpfs";
-    options = [
-      "defaults"
-      "size=${config.tmpDirs.size}"
-      "mode=1777"
-      "nosuid"
-      "nodev"
-      "noexec"
-    ];
-  };
-in {
+}: {
   # tmpfs is allocated on demand, so this is the ceiling on what temp files may take.
   options.tmpDirs.size = lib.mkOption {
     type = lib.types.str;
@@ -24,7 +11,20 @@ in {
     description = "Size of each of the /tmp and /var/tmp tmpfs mounts.";
   };
 
-  config.fileSystems = {
+  config.fileSystems = let
+    mount = {
+      device = "none";
+      fsType = "tmpfs";
+      options = [
+        "defaults"
+        "size=${config.tmpDirs.size}"
+        "mode=1777"
+        "nosuid"
+        "nodev"
+        "noexec"
+      ];
+    };
+  in {
     "/tmp" = mount;
     "/var/tmp" = mount;
   };

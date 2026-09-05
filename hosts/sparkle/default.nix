@@ -5,10 +5,7 @@
   pkgs,
   ...
 }: let
-  inherit (config.host) smtp;
-  net = import ./guest-net.nix;
   dmz = import ./dmz-net.nix;
-  trustedSubnets = import ./trusted-subnets.nix;
 in {
   imports = [
     outputs.nixosModules.host-base
@@ -28,7 +25,7 @@ in {
   ];
 
   # Client subnets trusted to reach sparkle's own sshd, and through the bridge forward chain the guests' admin surfaces. From trusted-subnets.nix, shared with the proxy, vault, and forgejo guests so the lists cannot drift.
-  host.trustedSubnets = trustedSubnets.all;
+  host.trustedSubnets = (import ./trusted-subnets.nix).all;
 
   # The ProtonMail submission endpoint and the noreply relay account, used by msmtp for smartd alerts. The password secret lives in this host's sops.
   host.smtp = {
@@ -39,7 +36,9 @@ in {
 
   host.flakePath = "/persist/nix-config";
 
-  networking = {
+  networking = let
+    net = import ./guest-net.nix;
+  in {
     hostName = "sparkle";
     hostId = "d38a0d1c";
     # Nothing on the host binds 53, so resolved is left at the networkd default and takes the dns guest as its upstream.
@@ -67,7 +66,9 @@ in {
   };
 
   # System SMTP relay so automated daemons, currently smartd, can send alerts.
-  programs.msmtp = {
+  programs.msmtp = let
+    inherit (config.host) smtp;
+  in {
     enable = true;
     setSendmail = true;
     accounts.default = {

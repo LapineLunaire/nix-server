@@ -5,9 +5,7 @@
   web,
   outputs,
   ...
-}: let
-  inherit (config.host) smtp;
-in {
+}: {
   imports = [
     # Git-over-SSH on port 22 uses the system sshd; open it to git clients on the trusted subnets.
     outputs.nixosModules.trusted-ssh-ingress
@@ -42,7 +40,9 @@ in {
   '';
   systemd.services.forgejo.serviceConfig.EnvironmentFile = config.sops.templates."forgejo.env".path;
 
-  services.forgejo = {
+  services.forgejo = let
+    inherit (config.host) smtp;
+  in {
     enable = true;
     database = {
       type = "postgres";

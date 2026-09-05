@@ -3,9 +3,7 @@
   net,
   web,
   ...
-}: let
-  inherit (config.host) smtp;
-in {
+}: {
   imports = [./sops.nix];
 
   # The ProtonMail SMTP submission endpoint and the noreply relay account for vaultwarden's outgoing mail; the password secret lives in this VM's sops.
@@ -28,7 +26,9 @@ in {
     {proto = "icmp";}
   ];
 
-  sops.templates."vaultwarden.env".content = ''
+  sops.templates."vaultwarden.env".content = let
+    inherit (config.host) smtp;
+  in ''
     ADMIN_TOKEN=${config.sops.placeholder."vaultwarden-admin-token"}
     DATABASE_URL=postgresql://vaultwarden:${config.sops.placeholder."vaultwarden-db-password"}@${net.vmAddress.postgres}/vaultwarden
     SMTP_HOST=${smtp.host}

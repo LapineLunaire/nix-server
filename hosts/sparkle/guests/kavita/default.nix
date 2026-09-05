@@ -2,8 +2,7 @@
   config,
   net,
   ...
-}: let
-in {
+}: {
   imports = [./sops.nix];
 
   microvm = {

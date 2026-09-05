@@ -6,39 +6,7 @@
   outputs,
   ...
 }: let
-  # The trusted client subnets sparkle admits here. From trusted-subnets.nix, the same list the proxy guest applies as its vhost ACLs.
-  trusted = config.host.trustedSubnetsNft;
-  trustedSubnets = import ./trusted-subnets.nix;
-  # The LAN and the router, the only two sources a discovery probe for the vault guest can arrive from. The vault guest derives the same pair and mirrors these rules on its own input chain.
-  discoverySources = "${trustedSubnets.lan}, ${dmz.gateway}";
   dmz = import ./dmz-net.nix;
-  net = import ./guest-net.nix;
-  registry = import ./guest-registry.nix;
-  web = import ./guest-web.nix;
-  guests = net.tapsNft;
-  # Each tap paired with the MAC identity.nix gave its guest, read back from the guest's own config so the two cannot drift.
-  guestMacsNft = lib.concatStringsSep ", " (lib.mapAttrsToList (name: _: "\"${name}\" . ${(builtins.head outputs.nixosConfigurations.${name}.config.microvm.interfaces).mac}") registry);
-  # Private space, excluded from any flow that names no destination of its own.
-  privateSpace = "{ 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16 }";
-  # One accept per declared flow. A flow naming no destination keeps the private-space exclusion, which confines it to addresses outside the LAN and the management network.
-  renderFlow = tap: flow: let
-    destination =
-      if flow.destinations == []
-      then "ip daddr != ${privateSpace}"
-      else "ip daddr { ${lib.concatStringsSep ", " flow.destinations} }";
-    portSet = dir: list: lib.optionalString (flow.proto != "icmp" && list != []) " ${flow.proto} ${dir} { ${lib.concatMapStringsSep ", " toString list} }";
-    sports = portSet "sport" flow.sourcePorts;
-    ports = portSet "dport" flow.ports;
-    # A sport or dport match carries the protocol itself, so meta l4proto is only needed when the flow names neither.
-    match =
-      if flow.proto == "icmp"
-      then " icmp type echo-request"
-      else lib.optionalString (flow.ports == [] && flow.sourcePorts == []) " meta l4proto ${flow.proto}";
-  in "iifname \"${tap}\" oifname \"sfp0\" ${destination}${match}${sports}${ports} accept";
-  # Read back from each guest's own evaluated config, since the host already evaluates every guest for microvm.vms, so a guest's outbound needs stay declared next to the service that has them.
-  egressRules = lib.concatStringsSep "\n" (lib.concatLists (lib.mapAttrsToList (name: _:
-    map (renderFlow name) outputs.nixosConfigurations.${name}.config.microvmGuest.egress)
-  registry));
 in {
   # Conntrack for bridged frames, read by the ct rules below. Loading br_netfilter would hand the inet forward chain the bridge master as both iifname and oifname, collapsing the port information these rules match on.
   boot.kernelModules = ["nf_conntrack_bridge"];
@@ -63,7 +31,40 @@ in {
   networking.firewall.filterForward = true;
 
   # Default-drop over the bridge: nothing crosses between a guest tap and the segment, or between two guest taps, without a rule here. Frames to and from sparkle's own address take the bridge's input and output hooks instead, so this chain never sees them and the host's own reachability is the inet table's business.
-  networking.nftables.tables.dmz = {
+  networking.nftables.tables.dmz = let
+    # The trusted client subnets sparkle admits here. From trusted-subnets.nix, the same list the proxy guest applies as its vhost ACLs.
+    trusted = config.host.trustedSubnetsNft;
+    trustedSubnets = import ./trusted-subnets.nix;
+    # The LAN and the router, the only two sources a discovery probe for the vault guest can arrive from. The vault guest derives the same pair and mirrors these rules on its own input chain.
+    discoverySources = "${trustedSubnets.lan}, ${dmz.gateway}";
+    net = import ./guest-net.nix;
+    registry = import ./guest-registry.nix;
+    web = import ./guest-web.nix;
+    guests = net.tapsNft;
+    # Each tap paired with the MAC identity.nix gave its guest, read back from the guest's own config so the two cannot drift.
+    guestMacsNft = lib.concatStringsSep ", " (lib.mapAttrsToList (name: _: "\"${name}\" . ${(builtins.head outputs.nixosConfigurations.${name}.config.microvm.interfaces).mac}") registry);
+    # Private space, excluded from any flow that names no destination of its own.
+    privateSpace = "{ 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16 }";
+    # One accept per declared flow. A flow naming no destination keeps the private-space exclusion, which confines it to addresses outside the LAN and the management network.
+    renderFlow = tap: flow: let
+      destination =
+        if flow.destinations == []
+        then "ip daddr != ${privateSpace}"
+        else "ip daddr { ${lib.concatStringsSep ", " flow.destinations} }";
+      portSet = dir: list: lib.optionalString (flow.proto != "icmp" && list != []) " ${flow.proto} ${dir} { ${lib.concatMapStringsSep ", " toString list} }";
+      sports = portSet "sport" flow.sourcePorts;
+      ports = portSet "dport" flow.ports;
+      # A sport or dport match carries the protocol itself, so meta l4proto is only needed when the flow names neither.
+      match =
+        if flow.proto == "icmp"
+        then " icmp type echo-request"
+        else lib.optionalString (flow.ports == [] && flow.sourcePorts == []) " meta l4proto ${flow.proto}";
+    in "iifname \"${tap}\" oifname \"sfp0\" ${destination}${match}${sports}${ports} accept";
+    # Read back from each guest's own evaluated config, since the host already evaluates every guest for microvm.vms, so a guest's outbound needs stay declared next to the service that has them.
+    egressRules = lib.concatStringsSep "\n" (lib.concatLists (lib.mapAttrsToList (name: _:
+      map (renderFlow name) outputs.nixosConfigurations.${name}.config.microvmGuest.egress)
+    registry));
+  in {
     family = "bridge";
     content = ''
       # Each tap paired with its guest's address, read by the antispoof chain.
