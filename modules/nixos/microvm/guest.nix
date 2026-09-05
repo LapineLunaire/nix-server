@@ -1,4 +1,4 @@
-# The shared microVM guest baseline: security.nix hardening, virtiofs persistence, sops, node_exporter, and the sshd serving the root vsock console.
+# The shared microVM guest baseline: security.nix hardening, the uutils swap, virtiofs persistence, sops, node_exporter, and the sshd serving the root vsock console.
 # Takes the addressing of the segment the guest joins and returns its module, so this file carries no host's addressing. gateway is the segment's router, resolver is the DNS the guest points at, proxyAddress is the reverse proxy allowed to reach its service ports, monitoringAddress is the guest allowed to scrape node_exporter on nodeExporterPort, proxiedPorts are the ports this guest is proxied on (generated from guest-web.nix, so a guest never names its own), and consoleKey is the host public key authorized for root over the vsock console.
 {
   gateway,
@@ -19,6 +19,7 @@
     outputs.modules.host
     outputs.modules.nix-settings
     outputs.nixosModules.security
+    outputs.nixosModules.uutils
   ];
 
   options.microvmGuest.proxyReachableTCPPorts = lib.mkOption {

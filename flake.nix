@@ -192,6 +192,7 @@
       microvm-docker-common = ./modules/nixos/microvm/docker-common.nix;
       postgresql-passwords = ./modules/nixos/postgresql-passwords.nix;
       ssh-ip-whitelist = ./modules/nixos/ssh-ip-whitelist.nix;
+      uutils = ./modules/nixos/uutils.nix;
       wireguard-tunnel = ./modules/nixos/wireguard-tunnel.nix;
     };
 
@@ -211,7 +212,11 @@
       pkgs = pkgsFor system;
     in {
       default = pkgs.mkShell {
+        # uutils shadowing the GNU tools that stdenv puts on PATH, so the shell matches the system.
         packages = with pkgs; [
+          uutils-coreutils-noprefix
+          uutils-findutils
+          uutils-diffutils
           alejandra
           nixd
           sops

@@ -1,4 +1,4 @@
-# Base NixOS for full hosts: boot loader, escalation rules, zram, locale, console, and the firewall and networkd defaults, on top of the option namespace, nix settings, hardening, persisted state, packages, services, and temp dir mounts.
+# Base NixOS for full hosts: boot loader, escalation rules, zram, locale, console, and the firewall and networkd defaults, on top of the option namespace, nix settings, hardening, the uutils swap, persisted state, packages, services, and temp dir mounts.
 {
   lib,
   outputs,
@@ -9,6 +9,7 @@
     outputs.modules.host
     outputs.modules.nix-settings
     outputs.nixosModules.security
+    outputs.nixosModules.uutils
     ./packages.nix
     ./persistence.nix
     ./services.nix
