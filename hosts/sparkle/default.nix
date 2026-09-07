@@ -1,6 +1,5 @@
 {
   config,
-  lib,
   outputs,
   pkgs,
   ...
@@ -35,6 +34,9 @@ in {
   };
 
   host.flakePath = "/persist/nix-config";
+
+  # Raptor Lake-S. gcc 15.2, the compiler that builds this kernel, resolves -march=native to alderlake on this CPU and enables an identical target flag set for both names.
+  host.cpu.march = "alderlake";
 
   networking = let
     net = import ./guest-net.nix;
@@ -84,16 +86,32 @@ in {
   boot.blacklistedKernelModules = ["cp210x" "mpt3sas"];
 
   boot = {
-    # Rebuilt with X86_NATIVE_CPU, which targets the CPU the kernel is compiled on. This kernel is specific to sparkle's hardware, and sparkle builds it itself.
-    kernelPackages = pkgs.linuxPackages_6_18.extend (
-      _: super: {
-        kernel = super.kernel.override {
-          structuredExtraConfig = {
-            X86_NATIVE_CPU = lib.kernel.yes;
-          };
-        };
-      }
-    );
+    # Compiled for the microarchitecture host.cpu.march names rather than for whatever machine ran the build, so the derivation records the target and the result substitutes.
+    # One flag per list element, none with an embedded space: the generic kernel builder splices $makeFlags
+    # into `make` unquoted, so a value like "-march=x -mtune=x" in one element breaks apart into a second
+    # word make reads as an unknown flag.
+    # arch/x86/Makefile always appends "-march=x86-64 -mtune=generic" after KCFLAGS when CONFIG_X86_NATIVE_CPU
+    # is off, so KCFLAGS alone wins the ISA but leaves -mtune=generic in place; CFLAGS_KERNEL/CFLAGS_MODULE
+    # set -mtune directly, per kernel and module objects. KRUSTFLAGS covers the Rust objects, which KCFLAGS
+    # does not touch at all.
+    kernelPackages = let
+      inherit (config.host.cpu) march;
+    in
+      if march == null
+      then pkgs.linuxPackages_6_18
+      else
+        pkgs.linuxPackages_6_18.extend (
+          _: super: {
+            kernel = super.kernel.override {
+              extraMakeFlags = [
+                "KCFLAGS=-march=${march}"
+                "CFLAGS_KERNEL=-mtune=${march}"
+                "CFLAGS_MODULE=-mtune=${march}"
+                "KRUSTFLAGS=-Ctarget-cpu=${march}"
+              ];
+            };
+          }
+        );
     kernelParams = [
       "intel_pstate=active"
       "intel_iommu=on"

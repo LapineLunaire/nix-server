@@ -22,6 +22,12 @@
       description = "Path of this system's flake checkout, which nh and system.autoUpgrade build from.";
     };
 
+    cpu.march = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Microarchitecture this system's kernel is compiled for, as a gcc -march value. Null leaves the stock kernel. -march=native resolves on the build machine and leaves no trace in the derivation, so a literal value here is what lets one store path mean one kernel and a cache carry it.";
+    };
+
     smtp = {
       host = lib.mkOption {
         type = lib.types.str;
