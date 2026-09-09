@@ -38,6 +38,8 @@
       };
       # forgejo: the DMZ segment for clones from other server hosts, the ci-runner cloning over https, and uptime-kuma.
       forgejo.extraAllow = [dmz.subnet net.vmAddress.ci-runner uptimeKuma];
+      # attic: the DMZ segment, which is sparkle substituting from the cache and the ci-runner pushing to it. baseAllow already carries the trusted client subnets camellya sits in.
+      attic.extraAllow = [dmz.subnet];
       homeassistant.extraAllow = [uptimeKuma];
       kavita.extraAllow = [uptimeKuma];
       qbittorrent.extraAllow = [uptimeKuma];

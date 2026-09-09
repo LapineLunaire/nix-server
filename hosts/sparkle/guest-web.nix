@@ -39,6 +39,10 @@ let
       sub = "gf";
       port = 3000;
     };
+    attic = {
+      sub = "cache";
+      port = 8080;
+    };
   };
 in {
   inherit domain endpoints;

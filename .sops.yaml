@@ -14,6 +14,7 @@ keys:
   - &vm_forgejo age1usarz2spxcjsdghwhej8d0l2aqkv5hg299h0nft55qj59e20y9tsn3hnv7
   - &vm_vault age1uuqhdftrhq9k7lcjwkc3g3j30ejwzwk8uxw00tjgln3f4dqftfysv5v7kv
   - &vm_monitoring age1np3n40swg3wj74jx7v54fjellr4ynxgtdhg05u4denmqu24n8dnsykdupd
+  - &vm_attic age1jefxkwgym3qkjp95udkv60e0eqz8tcm347uea6pvq8lyyywfmy2qdnqy73
 
 creation_rules:
   - path_regex: hosts/sparxie/secrets\.yaml$
@@ -54,6 +55,11 @@ creation_rules:
     key_groups:
       - age:
           - *vm_vault
+          - *sparkle_host
+  - path_regex: hosts/sparkle/guests/attic/secrets\.yaml$
+    key_groups:
+      - age:
+          - *vm_attic
           - *sparkle_host
   - path_regex: hosts/sparkle/guests/forgejo/secrets\.yaml$
     key_groups:

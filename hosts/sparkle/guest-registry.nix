@@ -16,6 +16,10 @@
   monitoring = {index = 15;};
   uptime-kuma = {index = 16;};
   vault = {index = 17;};
+  attic = {
+    index = 18;
+    deps = ["postgres"];
+  };
   forgejo = {
     index = 20;
     deps = ["postgres"];

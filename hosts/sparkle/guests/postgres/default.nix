@@ -25,8 +25,12 @@
       max_connections = 50;
     };
     # The databases, roles and pg_hba lines below grow one entry per client guest.
-    ensureDatabases = ["authelia" "forgejo" "vaultwarden"];
+    ensureDatabases = ["attic" "authelia" "forgejo" "vaultwarden"];
     ensureUsers = [
+      {
+        name = "attic";
+        ensureDBOwnership = true;
+      }
       {
         name = "authelia";
         ensureDBOwnership = true;
@@ -46,6 +50,7 @@
     ];
     authentication = ''
       local all             postgres                        peer
+      host  attic           attic       ${net.vmAddress.attic}/32 scram-sha-256
       host  authelia        authelia    ${net.vmAddress.authelia}/32 scram-sha-256
       host  forgejo         forgejo     ${net.vmAddress.forgejo}/32 scram-sha-256
       host  vaultwarden     vaultwarden ${net.vmAddress.vaultwarden}/32 scram-sha-256
@@ -54,6 +59,7 @@
   };
 
   sops.templates."postgresql-passwords.sql".content = ''
+    ALTER USER attic       WITH PASSWORD '${config.sops.placeholder."attic-db-password"}';
     ALTER USER authelia    WITH PASSWORD '${config.sops.placeholder."authelia-db-password"}';
     ALTER USER forgejo     WITH PASSWORD '${config.sops.placeholder."forgejo-db-password"}';
     ALTER USER vaultwarden WITH PASSWORD '${config.sops.placeholder."vaultwarden-db-password"}';
