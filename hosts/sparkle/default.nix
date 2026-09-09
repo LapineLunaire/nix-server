@@ -8,6 +8,7 @@
 in {
   imports = [
     outputs.nixosModules.host-base
+    outputs.nixosModules.binary-cache
     outputs.nixosModules.secure-boot
     outputs.nixosModules.zfs
     # Keeps sshd unreachable from the DMZ, where the guests are peers but not trusted, and from the management network and the sparxie tunnel.
@@ -34,6 +35,17 @@ in {
   };
 
   host.flakePath = "/persist/nix-config";
+
+  # The attic guest this host runs. The key is read off `attic cache info server`; a literal here for the same reason consoleKey is one in flake.nix.
+  host.binaryCache = {
+    caches = [
+      {
+        url = "https://cache.lunaire.moe/server";
+        publicKey = "server:oFkIrocLJr2oRVgeOqJ1TUUPwTYLWKm0Lpg9aRKU5zU=";
+      }
+    ];
+    tokenSecret = "attic-pull-token";
+  };
 
   # Raptor Lake-S. gcc 15.2, the compiler that builds this kernel, resolves -march=native to alderlake on this CPU and enables an identical target flag set for both names.
   host.cpu.march = "alderlake";

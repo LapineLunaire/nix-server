@@ -1,11 +1,12 @@
 # The Forgejo Actions runner. Jobs run natively rather than in containers, so the Nix store persists between runs and a daily build is incremental.
 {
   config,
+  outputs,
   pkgs,
   web,
   ...
 }: {
-  imports = [./sops.nix];
+  imports = [outputs.nixosModules.binary-cache ./sops.nix];
 
   microvm = {
     vcpu = 8;
@@ -39,6 +40,17 @@
 
   # The Nix database sits on the tmpfs root, so without this a reboot leaves a full store the guest believes is empty.
   environment.persistence."/persist".directories = ["/nix/var"];
+
+  # The runner both fills the cache and reads it; without the read, every nightly run rebuilds what the previous one pushed.
+  host.binaryCache = {
+    caches = [
+      {
+        url = "https://cache.lunaire.moe/server";
+        publicKey = "server:oFkIrocLJr2oRVgeOqJ1TUUPwTYLWKm0Lpg9aRKU5zU=";
+      }
+    ];
+    tokenSecret = "attic-pull-token";
+  };
 
   # security.nix restricts daemon access to @users, and the runner is a DynamicUser with a transient group outside it, so the daemon refuses its connections. Named here rather than widening the shared rule; the list definitions merge.
   nix.settings.allowed-users = ["gitea-runner"];
