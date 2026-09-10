@@ -25,6 +25,8 @@
     };
     environment.BORG_RSH = "ssh -i ${config.sops.secrets."borg-ssh-key".path} -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${config.sops.secrets."borg-known-hosts".path}";
     compression = "auto,zstd";
+    # The microvm volume images: container and Nix stores, none of them state, and each rewritten often enough that a nightly copy of tens of gigabytes buys nothing. The paths are inside the snapshot mount, which is what borg walks. sh: rather than the default fnmatch, whose * would cross the separator and take every guest's directory with it.
+    exclude = ["sh:/mnt/borg-snapshot/vms/*/volumes"];
     # Run a backup missed while the host was down at the next boot. The stamp this reads lives in /var/lib/systemd/timers, which host-base persists, so it survives the tmpfs root. The same option gives the timer network-online ordering, which nixpkgs gates on it together with the repo being remote.
     persistentTimer = true;
     inherit startAt;
