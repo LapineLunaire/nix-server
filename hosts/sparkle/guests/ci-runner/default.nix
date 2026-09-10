@@ -18,10 +18,10 @@ in {
     # Evaluating whole-host toplevels needs the full allocation, so the balloon starts at zero rather than relying on deflateOnOOM, which reacts only once the guest is already out of memory.
     initialBalloonMem = 0;
     volumes = [
-      # The writable half of the store overlay. Without a volume here it lands on the tmpfs root, where a kernel build would consume memory and be lost on reboot.
+      # The writable half of the store overlay. Without a volume here it lands on the tmpfs root, where a kernel build would consume memory and be lost on reboot. microvm creates the image only when it is absent, so this size is the size of a recreated one.
       {
         image = "/persist/vms/ci-runner/volumes/nix-store.img";
-        size = 65536;
+        size = 131072;
         mountPoint = "/nix/.rw-store";
         fsType = "xfs";
       }
@@ -61,12 +61,16 @@ in {
   # The Nix database sits on the tmpfs root, so without this a reboot leaves a full store the guest believes is empty.
   environment.persistence."/persist".directories = ["/nix/var"];
 
-  # The runner both fills the cache and reads it; without the read, every nightly run rebuilds what the previous one pushed.
+  # The runner both fills these caches and reads them; without the read, every nightly run rebuilds what the previous one pushed. Two of them, because the desktop repository builds on this runner and pushes camellya's closure to its own.
   host.binaryCache = {
     caches = [
       {
         url = "https://cache.lunaire.moe/server";
         publicKey = "server:oFkIrocLJr2oRVgeOqJ1TUUPwTYLWKm0Lpg9aRKU5zU=";
+      }
+      {
+        url = "https://cache.lunaire.moe/desktop";
+        publicKey = "desktop:QBHQfUrDyPKWwQolz4KiaJ1NlC+dGZLP4m29qgvkYs4=";
       }
     ];
     tokenSecret = "attic-pull-token";
@@ -76,7 +80,7 @@ in {
   nix.settings.allowed-users = ["gitea-runner"];
 
   nix.settings = {
-    # No collection runs here. This store is an overlay whose lower layer is sparkle's store over virtiofs, so deleting a path the host owns writes a whiteout rather than freeing anything: the space stays, and the path is masked from this guest permanently. min-free made that a boot failure. The update workflow builds sparkle's toplevel with --no-link, which covers every guest runner, so this guest's own next generation is an unrooted build output; pressure collected it, and the boot that followed found init= masked. The volume is the bound.
+    # No collection runs here. This store is an overlay whose lower layer is sparkle's store over virtiofs, so deleting a path the host owns writes a whiteout rather than freeing anything: the space stays, and the path is masked from this guest permanently. min-free made that a boot failure. The update workflow builds sparkle's toplevel with --no-link, which covers every guest runner, so this guest's own next generation is an unrooted build output; pressure collected it, and the boot that followed found init= masked. The volume is the bound, and ci-runner-store.nix on the host recreates it daily.
     build-dir = "/var/nixbuild";
     # 20 GiB guest: max-jobs=auto (the default) with cores=0 lets as many concurrent derivations as
     # cores each run make -jN, and a kernel build alongside a few others would exhaust memory. Capped
