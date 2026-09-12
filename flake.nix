@@ -76,7 +76,7 @@
     pkgsFor = system:
       import nixpkgs {
         inherit system;
-        overlays = [overlays.additions overlays.modifications];
+        overlays = [overlays.additions];
         config.allowUnfree = true;
       };
 
@@ -195,7 +195,6 @@
       microvm-docker-common = ./modules/nixos/microvm/docker-common.nix;
       postgresql-passwords = ./modules/nixos/postgresql-passwords.nix;
       ssh-ip-whitelist = ./modules/nixos/ssh-ip-whitelist.nix;
-      uutils = ./modules/nixos/uutils.nix;
       wireguard-tunnel = ./modules/nixos/wireguard-tunnel.nix;
     };
 
@@ -215,7 +214,7 @@
       pkgs = pkgsFor system;
     in {
       default = pkgs.mkShell {
-        # uutils shadowing the GNU tools that stdenv puts on PATH, so the shell matches the system.
+        # Prefer uutils on the development shell's PATH; package dependencies keep their GNU tools.
         packages = with pkgs; [
           uutils-coreutils-noprefix
           uutils-findutils

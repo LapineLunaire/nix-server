@@ -7,7 +7,7 @@ Carmilla's server config: the two machines that run services. The desktops live 
 | sparkle | x86_64-linux | Home server |
 | sparxie | aarch64-linux | VPS |
 
-sparkle runs one microVM guest per service (cloud-hypervisor via microvm.nix): dns, proxy, postgres, pgadmin, authelia, monitoring, uptime-kuma, vault, forgejo, ci-runner, vaultwarden, kavita, qbittorrent, homeassistant, and unifi. They are peers of the other servers on the DMZ: sfp0 is enslaved to the `dmz0` bridge, sparkle carries `10.28.33.1/23` on it, and each guest takes `10.28.33.<index>` from `hosts/sparkle/guest-registry.nix`. Indices 10-19 are the platform: resolution, ingress, data, identity, observability, and storage. Indices 20-29 are what the platform serves. The index is also the vsock CID and the MAC's last octet. dns is authoritative for lunaire.moe and resolves for the whole network; proxy serves every vhost and terminates the tunnel to sparxie; homeassistant owns the host's USB controller through VFIO passthrough for the Zigbee stick, and vault owns the SAS HBA the same way, importing the pool on it and serving it to the guests over NFSv4 and to the clients over SMB. Each guest is its own `nixosConfigurations` output, and every one of them is in sparkle's toplevel closure, which is what the `update` job's build step checks transitively. A second hypervisor is one entry in the flake's `hypervisors` set plus its own guest data files and `guests/` directory. A guest name declared by two hypervisors is an evaluation error.
+sparkle runs one microVM guest per service (cloud-hypervisor via microvm.nix): dns, proxy, postgres, pgadmin, authelia, monitoring, uptime-kuma, vault, attic, forgejo, ci-runner, vaultwarden, kavita, qbittorrent, homeassistant, and unifi. They are peers of the other servers on the DMZ: sfp0 is enslaved to the `dmz0` bridge, sparkle carries `10.28.33.1/23` on it, and each guest takes `10.28.33.<index>` from `hosts/sparkle/guest-registry.nix`. Indices 10-19 are the platform: resolution, ingress, data, identity, observability, and storage. Indices 20-29 are what the platform serves. The index sets the vsock CID and is written as the MAC's two-digit suffix. dns is authoritative for lunaire.moe and resolves for the whole network; proxy serves every vhost and terminates the tunnel to sparxie; homeassistant owns the host's USB controller through VFIO passthrough for the Zigbee stick, and vault owns the SAS HBA the same way, importing the pool on it and serving it to the guests over NFSv4 and to the clients over SMB. Each guest is its own `nixosConfigurations` output, and every one of them is in sparkle's toplevel closure, which is what the `update` job's build step checks transitively. A second hypervisor is one entry in the flake's `hypervisors` set plus its own guest data files and `guests/` directory. A guest name declared by two hypervisors is an evaluation error.
 
 Both hosts build against nixos-26.05 and use impermanence with a tmpfs `/`. `/var/lib` and `/var/log` are persisted whole, so a new service needs no persistence entry; everything else on `/` is discarded at reboot unless a module declares it. Secrets are sops-nix encrypted to each host's SSH ed25519 host key, and each VM's secrets are additionally encrypted to sparkle's so the host can rebuild any guest. The checkout lives at `/persist/nix-config` on both hosts, which `host.flakePath` records and which the auto-update resets to the verified origin commit.
 
@@ -25,8 +25,7 @@ modules/        host.nix and nix-settings.nix are imported by hosts and guests a
   nixos/*.nix        Opt-in modules: caddy, zfs, borg, wireguard, auto-update, ssh-ip-whitelist, ...
 users/carmilla/ The account and its home-manager modules
 pkgs/           The bunny.enterprises site Caddy serves
-overlays/       additions (pkgs/) and modifications (overridden nixpkgs packages)
-  patches/        source patches applied by the modifications overlay
+overlays/       The overlay exposing pkgs/ in the shared nixpkgs instance
 ```
 
 Shared modules are reached as `outputs.nixosModules.<name>`, and the two platform-neutral ones as `outputs.modules.<name>`, which works from any nesting depth. The guest data files reach a guest as module arguments set by `mkGuest`, so a guest declares the ones it uses and names `net.vmAddress.postgres`, holding no path to its own location. The module factories that take arguments (`mkBorgBackup`, `mkMicrovmGuest`, `mkMicrovmIdentity`, `mkMicrovmHost`) live under `outputs.lib` instead.
@@ -39,7 +38,9 @@ Systems are built against nixos-26.05. The `nixpkgs-unstable` input exists only 
 nh os switch .
 ```
 
-`nix develop` gives the tools for working on the repo, and direnv enters it from `.envrc` on its own. Its shell hook sets `core.hooksPath`, which is per clone and cannot be carried in the repo, so the tracked hooks apply from the first time the shell is entered.
+System packages and microVM guests retain GNU utilities. On the two full hosts, the user profile precedes the system profile on PATH and supplies uutils; GNU provides commands uutils omits.
+
+`nix develop` gives the tools for working on the repo, including uutils, and direnv enters it from `.envrc` on its own. Its shell hook sets `core.hooksPath`, which is per clone and cannot be carried in the repo, so the tracked hooks apply from the first time the shell is entered.
 
 Editing secrets needs the age key derived from the host key; the `sops` shell alias does that derivation:
 
@@ -49,7 +50,7 @@ sops hosts/sparkle/secrets.yaml
 
 Both hosts auto-upgrade daily at 03:00, refusing to build unless `origin/main` verifies against the trusted signers in `host.autoUpdate.allowedSigners`, then hard-resetting the checkout to that commit. sparxie reboots on kernel changes; sparkle skips the reboot (its disk unlock is interactive) and restarts the guests whose config the switch changed, since a host switch leaves them running their old one.
 
-The `Update` workflow (`.forgejo/workflows/flake-update.yml`) supplies those commits, running nightly at 02:00 on the native `nixos` Forgejo Actions runner rather than a container. Its `digests` job refreshes the pgadmin and home-assistant image digests every Monday and commits any change; the `update` job needs it, so it always runs against that commit when one lands. `update` bumps `flake.lock`, builds sparkle's toplevel (which transitively builds every guest), then pushes the build to the `server` Attic cache and commits the lock only once it has: a broken build reaches neither the cache nor a commit.
+The `Update` workflow (`.forgejo/workflows/flake-update.yml`) supplies those commits, running nightly at 02:00 on the native `nixos` Forgejo Actions runner rather than a container. Its `digests` job refreshes the pgadmin and home-assistant image digests every Monday and commits any change; the `update` job needs it, so it always runs against that commit when one lands. `update` bumps `flake.lock`, checks all flake outputs (including sparxie's evaluation), and builds sparkle's toplevel, which transitively builds every guest. It then pushes the build to the `server` Attic cache when `ATTIC_TOKEN` is configured and commits the lock. A failed build or configured cache push prevents that lock commit; without the token, publication is skipped. sparxie's aarch64 closure is evaluated but not built by this x86_64 runner.
 
 ## MicroVM operations
 
@@ -93,8 +94,10 @@ Every flow the guests are permitted, read off the generated ruleset. `dmz-bridge
 | Trusted | vault | tcp 139, 445 (SMB) |
 | Trusted | unifi | tcp 443 (UI, no reverse proxy) |
 | Trusted | every guest | ICMP echo |
-| LAN and the router only | vault | udp 137, 138; tcp 5357; and the mDNS/WS-Discovery groups |
+| LAN and the router only | vault | udp 137, 138; tcp 5357 |
+| Any source arriving on sfp0 | vault | udp 5353 to 224.0.0.251; udp 3702 to 239.255.255.250 |
 | The DMZ segment | proxy | tcp 80, 443 |
+| Any source arriving on sfp0 | dns | tcp/udp 53 |
 | The management network | unifi | tcp 8080, 8443, 6789, 8880, 8843; udp 3478, 10001 |
 
 **Between guests**
@@ -105,23 +108,24 @@ Every flow the guests are permitted, read off the generated ruleset. `dmz-bridge
 | uptime-kuma, forgejo, pgadmin, ci-runner | proxy | tcp 443 |
 | uptime-kuma | unifi | tcp 443 |
 | monitoring | every guest, and sparkle | tcp 9100 |
-| authelia, forgejo, vaultwarden, uptime-kuma, pgadmin | postgres | tcp 5432 |
+| attic, authelia, forgejo, vaultwarden, uptime-kuma, pgadmin | postgres | tcp 5432 |
 | proxy, kavita, qbittorrent | vault | tcp 2049 (NFSv4) |
 | every guest | dns | tcp/udp 53 |
 
-**Out off the segment**, per guest, from its own `microvmGuest.egress`. "Any" excludes private space throughout, so none of these is a path to the LAN or the management network.
+**Out off the segment**, per guest, from its own `microvmGuest.egress`. Unscoped "any" flows exclude private space. Explicit destination grants are listed separately.
 
 | Guest | May open |
 |---|---|
-| postgres | nothing at all |
+| postgres, attic | nothing at all |
 | dns | tcp 853, to 1.1.1.1 and 1.0.0.1 only |
 | authelia | tcp 587 |
 | pgadmin | tcp 443 |
 | proxy | tcp 443; tcp/udp 53; udp to sparxie's WireGuard endpoint |
 | unifi | tcp 80, 443; tcp/udp 53; plus any protocol to the management network |
 | qbittorrent | udp 51820, ICMP. Torrent traffic stays inside the confinement namespace |
+| uptime-kuma | any tcp/udp port, ICMP; also ICMP to 10.69.69.69 |
 | vault | tcp 587; the mDNS/WSD groups; udp from port 3702 to the LAN and the router |
-| ci-runner, forgejo, homeassistant, kavita, monitoring, uptime-kuma, vaultwarden | any tcp/udp port, ICMP |
+| ci-runner, forgejo, homeassistant, kavita, monitoring, vaultwarden | any tcp/udp port, ICMP |
 
 Two asymmetries worth knowing. Every guest enforces its proxied port twice, in the host's forward chain and its own input chain, except for **unifi**, whose container publishes its ports, so they are DNAT'd past its input chain and the host's forward chain is the only thing gating them. And the **vault** guest's input chain accepts mDNS on 5353 from any source, because avahi's module opens it; what actually scopes it is the forward rule, which matches on the multicast destination.
 
@@ -176,29 +180,86 @@ mount -t zfs -o zfsutil <hostname>/persist /mnt/persist
 mount -t zfs -o zfsutil <hostname>/home /mnt/home
 ```
 
-**4. Generate the SSH host key (required for sops)**
+**4. Clone the repo and update the hardware identifiers**
+
+```sh
+git clone <repo> /mnt/persist/nix-config
+cd /mnt/persist/nix-config
+blkid /dev/nvme0n1p1
+```
+
+Replace the EFI filesystem UUID in `hosts/<hostname>/hardware-configuration.nix` with the newly generated value. The ZFS dataset names must match the pool created above, and `networking.hostId` in `hosts/<hostname>/default.nix` must be unique. Preserve the tmpfs root, `/persist`'s `neededForBoot`, mount options, and host-specific hardware settings. When replacing hardware, also review the NIC identities and PCI passthrough addresses.
+
+**5. Prepare the SSH host key and secrets**
+
+Restore the existing host key and its `.pub` file to `/mnt/persist/etc/ssh/` if a backup is available. Otherwise generate a new key:
 
 ```sh
 mkdir -p /mnt/persist/etc/ssh
 ssh-keygen -t ed25519 -N "" -f /mnt/persist/etc/ssh/ssh_host_ed25519_key
 ```
 
-Get the age recipient with `ssh-to-age < /mnt/persist/etc/ssh/ssh_host_ed25519_key.pub`, put it in `.sops.yaml` under `<hostname>_host`, include it in the creation rule for `hosts/<hostname>/secrets.yaml`, and re-encrypt with `sops updatekeys hosts/<hostname>/secrets.yaml`.
-
-**5. Clone the repo and install**
+For a new key, obtain its age recipient using the pinned tool:
 
 ```sh
-mkdir -p /mnt/persist/nix-config
-git clone <repo> /mnt/persist/nix-config
+nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nixpkgs#ssh-to-age \
+  -c ssh-to-age < /mnt/persist/etc/ssh/ssh_host_ed25519_key.pub
+```
+
+Update `<hostname>_host` in `.sops.yaml`, then update the host secrets with an existing authorized decryption identity available to SOPS:
+
+```sh
+nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nixpkgs#sops \
+  -c sops updatekeys hosts/<hostname>/secrets.yaml
+```
+
+For sparkle, also update every guest secrets file whose creation rule includes `sparkle_host`. A new recipient cannot decrypt existing ciphertext; if the old identity is unavailable, recreate the secret values and encrypt them for the new recipients before installing. Restoring the original host key does not require re-encryption.
+
+Restore sparkle's guest state and SSH keys under `/mnt/persist/vms/`. For new guests, provision their keys and secret recipients as described in MicroVM operations before starting them; services also need their persisted data or first-time initialization. Keep the vault pool passphrase available independently of its encrypted guest secret.
+
+**6. Prepare Secure Boot signing keys before installation (sparkle only)**
+
+Lanzaboote needs signing keys when the installer writes the bootloader. Restore the existing `/var/lib/sbctl` backup into `/mnt/persist/var/lib/sbctl`, or create a new set there:
+
+```sh
+install -d -m 700 /mnt/persist/var/lib/sbctl
+mkdir -p /mnt/var/lib
+mount --bind /mnt/persist/var/lib /mnt/var/lib
+
+cat > /tmp/sbctl-install.yaml <<'EOF'
+keydir: /mnt/persist/var/lib/sbctl/keys
+guid: /mnt/persist/var/lib/sbctl/GUID
+EOF
+nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nixpkgs#sbctl \
+  -c sbctl --config /tmp/sbctl-install.yaml create-keys
+```
+
+Skip `create-keys` when restoring keys. The bind mount makes the same persisted keys available at the install target's `/var/lib/sbctl`, where Lanzaboote expects them. See [sbctl's configuration reference](https://github.com/Foxboron/sbctl/blob/master/docs/sbctl.conf.5.scd) for `keydir` and `guid`. sparxie uses systemd-boot and skips this step.
+
+**7. Install**
+
+```sh
 nixos-install --flake /mnt/persist/nix-config#<hostname>
 ```
 
-**6. First boot, secure boot hosts only (sparkle)**
+Before rebooting, leave the checkout, unmount the target, and export the pool cleanly so the next boot does not need a forced import:
 
 ```sh
-install -d -m 700 /var/lib/sbctl
-sbctl create-keys
-sbctl enroll-keys --microsoft
+cd /
+umount -R /mnt
+zpool export <hostname>
 ```
 
-`sbctl create-keys` writes private keys, so the directory must exist with mode 0700 first. It is persisted from then on.
+For newly generated signing keys, boot sparkle with Secure Boot enforcement disabled until the keys are enrolled. Its ZFS pool still requires the interactive passphrase.
+
+**8. Enroll and verify Secure Boot (sparkle only)**
+
+For new keys, enter the firmware's Secure Boot Setup Mode, preserving its forbidden-signature database (`dbx`), and boot the installed system. Check the signed boot entries and enroll the keys:
+
+```sh
+doas sbctl status
+doas sbctl verify
+doas sbctl enroll-keys --microsoft
+```
+
+If restored keys are already enrolled, skip enrollment. Enable Secure Boot enforcement in firmware and reboot; confirm `bootctl status` reports Secure Boot enabled in user mode. sparkle's ZFS pool continues to use the interactive passphrase.

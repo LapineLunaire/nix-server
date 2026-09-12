@@ -6,10 +6,12 @@
         "nix-command"
         "flakes"
       ];
-      # An empty value disables the global flake registry, leaving only this flake's pinned inputs.
+      # Disable the global flake registry. The system nixpkgs pin and user registry entries still apply.
       flake-registry = "";
       # Replaces store files with identical contents by hard links.
       auto-optimise-store = true;
+      # Build from source if a substitute download fails, regardless of which caches are configured.
+      fallback = true;
     };
     channel.enable = false;
   };

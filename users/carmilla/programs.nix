@@ -99,7 +99,7 @@
       grep = "grep --color=auto";
       egrep = "egrep --color=auto";
       fgrep = "fgrep --color=auto";
-      # Use CoW reflinks on supported filesystems (ZFS, btrfs), falling back to a regular copy. --sparse=always avoids writing zero blocks explicitly.
+      # --reflink=auto uses CoW where the filesystem supports it and copies otherwise; --sparse=always skips writing blocks of zeroes.
       cp = "cp --reflink=auto --sparse=always";
       sops = "SOPS_AGE_KEY=\"$(doas cat /etc/ssh/ssh_host_ed25519_key | ssh-to-age -private-key)\" sops";
     };

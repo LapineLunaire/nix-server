@@ -6,7 +6,7 @@
     enable = true;
     daemon.settings.log-driver = "journald";
 
-    # Weekly `docker system prune`. --all also reclaims superseded images: refs are pinned by digest, so a bumped digest (via the container-update workflow) leaves the old image unused-but-tagged, which a plain dangling-only prune never removes.
+    # Weekly `docker system prune`. --all also reclaims superseded images: refs are pinned by digest, so a bumped digest (via the digests job in flake-update.yml) leaves the old image unused-but-tagged, which a plain dangling-only prune never removes.
     # Running containers' images are kept; volumes are untouched (no --volumes), so bind-mounted state is safe.
     autoPrune = {
       enable = true;

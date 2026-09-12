@@ -40,7 +40,7 @@ in {
   host.binaryCache = {
     caches = [
       {
-        url = "https://cache.lunaire.moe/server";
+        url = "https://cache.lunaire.moe/server?priority=10";
         publicKey = "server:oFkIrocLJr2oRVgeOqJ1TUUPwTYLWKm0Lpg9aRKU5zU=";
       }
     ];

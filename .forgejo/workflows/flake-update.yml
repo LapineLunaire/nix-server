@@ -89,7 +89,12 @@ jobs:
           echo "caddy plugin hash refreshed: $old -> $got"
           nix build --no-link "$target"
 
-      # sparkle's closure references every guest's runner through microvm.vms, so this one target builds all 15 guests and a new registry entry is covered without touching this file. sparxie (aarch64) is skipped: uutils.nix's replaceDependencies needs an IFD that realises its whole closure, which this x86_64 runner can't build.
+      # Evaluate both hosts and every guest, including aarch64 sparxie; reject build-dependent evaluation before starting builds.
+      - name: Check flake outputs
+        if: steps.check.outputs.changed == 'true'
+        run: nix flake check --all-systems --no-build --no-write-lock-file --option allow-import-from-derivation false
+
+      # sparkle's closure references every guest's runner through microvm.vms, so this target builds every registered guest. The x86_64 runner does not build sparxie's aarch64 closure.
       - name: Build
         id: build
         if: steps.check.outputs.changed == 'true'
@@ -102,9 +107,7 @@ jobs:
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
         run: |
-          # The cache isn't deployed yet, so the token secret doesn't exist. Skip cleanly rather than
-          # failing the job and blocking the lock commit below; once the secret exists, a real push
-          # failure still fails the step normally.
+          # Cache publication is optional when ATTIC_TOKEN is absent; a failed push with a configured token fails the job.
           if [ -z "$ATTIC_TOKEN" ]; then
             echo "ATTIC_TOKEN not set, skipping push"
             exit 0

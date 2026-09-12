@@ -1,5 +1,5 @@
 # The attic caches declared in host.binaryCache, added as substituters with the pull token rendered into the netrc nix authenticates with.
-# extra-substituters rather than substituters, so cache.nixos.org keeps its place and a cache that is down degrades to building locally instead of failing.
+# extra-substituters keeps cache.nixos.org in the list.
 {
   config,
   lib,

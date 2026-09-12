@@ -7,7 +7,7 @@
   prefixLength,
   macPrefix,
 }: let
-  # Indices below 10 would produce a one-digit MAC octet and vsock CIDs below 3 are reserved; above 99 overflows the octet.
+  # Keep the existing MAC suffix as two decimal digits interpreted as hexadecimal; vsock uses the numeric index, and CIDs below 3 are reserved.
   octet =
     if index >= 10 && index <= 99
     then toString index

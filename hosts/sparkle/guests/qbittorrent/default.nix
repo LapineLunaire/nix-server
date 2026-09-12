@@ -1,6 +1,5 @@
 {
   config,
-  dmz,
   net,
   web,
   lib,

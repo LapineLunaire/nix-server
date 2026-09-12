@@ -1,5 +1,4 @@
 {
-  dmz,
   net,
   web,
   outputs,

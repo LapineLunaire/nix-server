@@ -1,4 +1,4 @@
-# Lanzaboote for hosts with an enrolled key set, replacing systemd-boot, plus the sbctl and TPM2 tooling. sbctl create-keys makes the PKI bundle at bootstrap, under the /var/lib that host-base/persistence.nix persists.
+# Lanzaboote uses signing keys prepared before installation, under the /var/lib that host-base/persistence.nix persists. Firmware enrollment follows installation; README.md describes the bootstrap sequence.
 {pkgs, ...}: {
   boot.loader.systemd-boot.enable = false;
 

@@ -13,9 +13,10 @@ in {
 
   microvm = {
     vcpu = 8;
-    # The evaluator alone holds close to 6 GB realising every guest closure through the uutils IFD, and builds run alongside it. The other fifteen guests declare 32 GB alone against sparkle's 64, so this leaves room for the host and the ZFS ARC.
+    # Keep the existing 20 GiB build budget. The other fifteen guests declare 33152 MiB against sparkle's 64 GiB, leaving room for the host and ZFS ARC.
+    # Revisit this allocation after measuring builds with the closure replacement removed.
     mem = 20480;
-    # Evaluating whole-host toplevels needs the full allocation, so the balloon starts at zero rather than relying on deflateOnOOM, which reacts only once the guest is already out of memory.
+    # Start with the full allocation available to evaluation and builds; deflateOnOOM only reacts once the guest is out of memory.
     initialBalloonMem = 0;
     volumes = [
       # The writable half of the store overlay. Without a volume here it lands on the tmpfs root, where a kernel build would consume memory and be lost on reboot. microvm creates the image only when it is absent, so this size is the size of a recreated one.
@@ -65,11 +66,11 @@ in {
   host.binaryCache = {
     caches = [
       {
-        url = "https://cache.lunaire.moe/server";
+        url = "https://cache.lunaire.moe/server?priority=10";
         publicKey = "server:oFkIrocLJr2oRVgeOqJ1TUUPwTYLWKm0Lpg9aRKU5zU=";
       }
       {
-        url = "https://cache.lunaire.moe/desktop";
+        url = "https://cache.lunaire.moe/desktop?priority=10";
         publicKey = "desktop:QBHQfUrDyPKWwQolz4KiaJ1NlC+dGZLP4m29qgvkYs4=";
       }
     ];
