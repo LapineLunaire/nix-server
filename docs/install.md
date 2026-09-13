@@ -1,6 +1,8 @@
 # Installation
 
-Boot from a NixOS installer ISO, then:
+Boot a NixOS installer in UEFI mode and run these commands as root. The examples
+use `/dev/nvme0n1`; substitute the target disk on Sparxie. Partitioning and
+formatting erase that disk. Replace `<hostname>` with `sparkle` or `sparxie`.
 
 **1. Partition**
 
@@ -82,9 +84,15 @@ nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nix
   -c sops updatekeys hosts/<hostname>/secrets.yaml
 ```
 
-For sparkle, also update every guest secrets file whose creation rule includes `sparkle_host`. A new recipient cannot decrypt existing ciphertext; if the old identity is unavailable, recreate the secret values and encrypt them for the new recipients before installing. Restoring the original host key does not require re-encryption.
+For sparkle, also update `consoleKey` in `flake.nix` to the new SSH public key and update every guest secrets file whose creation rule includes `sparkle_host`. The console key and the age recipient are different encodings of the same host identity. A new recipient cannot decrypt existing ciphertext; if the old identity is unavailable, recreate the secret values and encrypt them for the new recipients before installing. Restoring the original host key does not require re-encryption.
 
 Restore sparkle's guest state and SSH keys under `/mnt/persist/vms/`. For new guests, provision their keys and secret recipients as described in [guest operations](guests.md) before starting them; services also need their persisted data or first-time initialization. Keep the vault pool passphrase available independently of its encrypted guest secret.
+
+Passwords and tokens embedded in runtime templates must be single-line values.
+Attic and Vaultwarden embed their database passwords in connection URLs, so use
+URL-safe passwords for those roles, for example `openssl rand -hex 32`. When rotating
+a database password, update both the application guest's secret and the matching
+secret in the PostgreSQL guest.
 
 **6. Prepare Secure Boot signing keys before installation (sparkle only)**
 
@@ -103,13 +111,17 @@ nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nix
   -c sbctl --config /tmp/sbctl-install.yaml create-keys
 ```
 
-Skip `create-keys` when restoring keys. The bind mount makes the same persisted keys available at the install target's `/var/lib/sbctl`, where Lanzaboote expects them. See [sbctl's configuration reference](https://github.com/Foxboron/sbctl/blob/master/docs/sbctl.conf.5.scd) for `keydir` and `guid`. sparxie uses systemd-boot and skips this step.
+Skip `create-keys` when restoring keys. The bind mount makes the same persisted keys available at the install target's `/var/lib/sbctl`, where Lanzaboote expects them. See [sbctl's configuration reference](https://github.com/Foxboron/sbctl/blob/master/docs/sbctl.conf.5.txt) for `keydir` and `guid`. sparxie uses systemd-boot and skips this step.
 
 **7. Install**
 
 ```sh
-nixos-install --flake /mnt/persist/nix-config#<hostname>
+nixos-install --no-root-passwd --flake /mnt/persist/nix-config#<hostname>
+chown -R 1000:100 /mnt/persist/nix-config
 ```
+
+Root login stays locked. The checkout belongs to `carmilla:users` (UID 1000, GID 100),
+so the user can edit it and the signed auto-update service can fetch into it.
 
 Before rebooting, leave the checkout, unmount the target, and export the pool cleanly so the next boot does not need a forced import:
 

@@ -128,7 +128,7 @@
                 # Sparkle's SSH host key authenticates the VSOCK console.
                 consoleKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMJ+Zb08V2BIx3TnFgha04A55Vo9d0ftNpNvnRgfO3Gk";
                 inherit (net) nodeExporterPort;
-                gateway = dmz.gateway;
+                inherit (dmz) gateway;
                 resolver = net.vmAddress.dns;
                 proxyAddress = net.vmAddress.proxy;
                 monitoringAddress = net.vmAddress.monitoring;

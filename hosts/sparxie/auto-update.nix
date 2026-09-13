@@ -1,4 +1,4 @@
-{...}: {
+{
   imports = [../../modules/nixos/auto-update.nix];
 
   host.autoUpdate = {

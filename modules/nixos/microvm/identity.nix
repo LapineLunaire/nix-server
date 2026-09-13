@@ -4,7 +4,7 @@
   address,
   prefixLength,
   macPrefix,
-}: {...}: {
+}: {
   microvm = {
     vsock.cid = index;
     interfaces = [

@@ -23,11 +23,13 @@ The development shell installs the formatting hook. User profiles prefer uutils;
 system packages and guests retain GNU utilities. On a host, the `sops` shell alias
 derives the age identity from its SSH host key.
 
-Both hosts check for signed updates daily at 03:00 and reset `/persist/nix-config`
-to the verified origin commit. Sparxie may reboot for kernel changes. Sparkle
+Both hosts check for signed updates daily at 03:00 UTC, with up to 15 minutes of
+jitter, and reset `/persist/nix-config` to the verified origin commit. Sparxie may reboot for kernel changes. Sparkle
 restarts changed guests and needs a manual reboot and disk unlock for kernel updates.
 
-The Forgejo workflow runs at 02:00. It refreshes container digests on Mondays,
+The Forgejo workflow is scheduled for 02:00 UTC. This schedule does not guarantee
+that a build finishes before the hosts check for updates; a later push is picked
+up on their next run. It refreshes container digests on Mondays,
 updates the lockfile, evaluates both hosts and all guests, and builds Sparkle's
 closure. It uploads to Attic when a token is configured, then signs and pushes
 the update. Sparxie's ARM closure is evaluated but not built by this runner.

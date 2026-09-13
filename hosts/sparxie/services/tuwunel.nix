@@ -1,8 +1,11 @@
 {config, ...}: {
   # Keep the registration token out of the Nix store.
-  sops.templates."tuwunel.env".content = ''
-    TUWUNEL_REGISTRATION_TOKEN=${config.sops.placeholder."tuwunel-registration-token"}
-  '';
+  sops.templates."tuwunel.env" = {
+    restartUnits = ["tuwunel.service"];
+    content = ''
+      TUWUNEL_REGISTRATION_TOKEN=${config.sops.placeholder."tuwunel-registration-token"}
+    '';
+  };
 
   systemd.services.tuwunel.serviceConfig.EnvironmentFile = config.sops.templates."tuwunel.env".path;
 

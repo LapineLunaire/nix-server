@@ -1,7 +1,7 @@
-{...}: {
+{
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    # Read by the caddy module's rendering of the Cloudflare token, and by the tunnel's wg-quick unit.
+    # Caddy renders the DNS token; wg-quick reads the tunnel key.
     secrets."lunaire-moe-dns-api-token" = {};
     secrets."wireguard-private-key" = {};
   };

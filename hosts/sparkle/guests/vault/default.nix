@@ -133,12 +133,12 @@ in {
   };
 
   # Serve NFSv4 only. Squash client-supplied UIDs to each export's owner.
-  # crossmnt exposes the library child to the proxy; Kavita mounts that child directly.
+  # An explicitly exported child needs both clients; crossmnt only inherits access for implicit exports.
   services.nfs.server = {
     enable = true;
     exports = ''
       /vault/misc ${net.vmAddress.proxy}(ro,sec=sys,no_subtree_check,crossmnt,all_squash,anonuid=1000,anongid=100)
-      /vault/misc/library ${net.vmAddress.kavita}(ro,sec=sys,no_subtree_check,all_squash,anonuid=1000,anongid=100)
+      /vault/misc/library ${net.vmAddress.proxy}(ro,sec=sys,no_subtree_check,all_squash,anonuid=1000,anongid=100) ${net.vmAddress.kavita}(ro,sec=sys,no_subtree_check,all_squash,anonuid=1000,anongid=100)
       /vault/torrents ${net.vmAddress.qbittorrent}(rw,sync,sec=sys,no_subtree_check,all_squash,anonuid=3000,anongid=3000)
     '';
   };

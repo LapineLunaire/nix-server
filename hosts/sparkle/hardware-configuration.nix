@@ -11,9 +11,7 @@
     "usb_storage"
     "sd_mod"
   ];
-  boot.initrd.kernelModules = [];
   boot.kernelModules = ["kvm-intel"];
-  boot.extraModulePackages = [];
 
   fileSystems = let
     temporary = {
@@ -60,8 +58,6 @@
     "/tmp" = temporary;
     "/var/tmp" = temporary;
   };
-
-  swapDevices = [];
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 

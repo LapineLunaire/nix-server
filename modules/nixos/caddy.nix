@@ -47,6 +47,7 @@
     sops.secrets.${tokenSecret} = {};
     # Caddy uses CF_API_TOKEN; lego uses CF_DNS_API_TOKEN.
     sops.templates."caddy-dns-api-token.env" = {
+      restartUnits = ["caddy.service"];
       content = ''
         CF_API_TOKEN=${config.sops.placeholder.${tokenSecret}}
       '';

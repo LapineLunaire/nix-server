@@ -1,4 +1,4 @@
-{...}: {
+{
   imports = [
     (import ../../../modules/nixos/borg-backup.nix {
       pool = "sparkle";

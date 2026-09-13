@@ -12,9 +12,6 @@
     "usbhid"
     "sr_mod"
   ];
-  boot.initrd.kernelModules = [];
-  boot.kernelModules = [];
-  boot.extraModulePackages = [];
 
   fileSystems = let
     temporary = {
@@ -61,8 +58,6 @@
     "/tmp" = temporary;
     "/var/tmp" = temporary;
   };
-
-  swapDevices = [];
 
   nixpkgs.hostPlatform = lib.mkDefault "aarch64-linux";
 }

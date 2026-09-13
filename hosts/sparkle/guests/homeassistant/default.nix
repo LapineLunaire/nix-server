@@ -1,4 +1,4 @@
-{...}: {
+{
   imports = [../../../../modules/nixos/microvm/docker-common.nix];
 
   microvm = {

@@ -15,7 +15,7 @@
 
   programs.fzf.enable = true;
 
-  # This account does not create commits.
+  # Commit signing is configured only on the desktop.
   programs.git = {
     enable = true;
     settings = {

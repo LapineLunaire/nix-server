@@ -1,4 +1,4 @@
-{...}: {
+{
   sops = {
     defaultSopsFile = ./secrets.yaml;
     secrets."pgadmin-admin-password" = {};

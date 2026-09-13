@@ -1,4 +1,4 @@
-{...}: {
+{
   sops = {
     defaultSopsFile = ./secrets.yaml;
     secrets."attic-db-password".restartUnits = ["postgresql-passwords.service"];

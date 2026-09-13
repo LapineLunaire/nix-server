@@ -33,7 +33,7 @@ destination grants may reach private addresses. Check the live rules with
 | uptime-kuma, forgejo, pgadmin, ci-runner | proxy | tcp 443 |
 | uptime-kuma | unifi | tcp 443 |
 | monitoring | every guest, and sparkle | tcp 9100 |
-| attic, authelia, forgejo, vaultwarden, uptime-kuma, pgadmin | postgres | tcp 5432 |
+| attic, authelia, forgejo, vaultwarden, pgadmin | postgres | tcp 5432 |
 | proxy, kavita, qbittorrent | vault | tcp 2049 (NFSv4) |
 | every guest | dns | tcp/udp 53 |
 
@@ -52,4 +52,6 @@ destination grants may reach private addresses. Check the live rules with
 | vault | tcp 587; the mDNS/WSD groups; udp from port 3702 to the LAN and the router |
 | ci-runner, forgejo, homeassistant, kavita, monitoring, vaultwarden | any tcp/udp port, ICMP |
 
-Two exceptions: Every guest enforces its proxied port twice, in the host's forward chain and its own input chain, except for **unifi**, whose container publishes its ports, so they are DNAT'd past its input chain and the host's forward chain is the only thing gating them. And the **vault** guest's input chain accepts mDNS on 5353 from any source, because avahi's module opens it; what actually scopes it is the forward rule, which matches on the multicast destination.
+Proxied services are filtered by both the host bridge and the guest input firewall.
+UniFi publishes container ports through DNAT, so the host bridge enforces its ingress
+policy. Vault restricts discovery to multicast destinations in both firewalls.

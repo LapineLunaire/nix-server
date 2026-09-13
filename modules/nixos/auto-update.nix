@@ -52,7 +52,7 @@ in {
       rev=$(${verifyOriginBranch})
     '';
 
-  # Allow root to read the user-owned checkout when building the verified revision.
+  # Mark the user-owned checkout as safe for root's Git invocation.
   environment.etc."gitconfig".text = ''
     [safe]
     directory = ${flakePath}

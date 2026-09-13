@@ -88,8 +88,8 @@ in {
       march = "alderlake";
     in
       pkgs.linuxPackages_6_18.extend (
-        _: super: {
-          kernel = super.kernel.override {
+        _: prev: {
+          kernel = prev.kernel.override {
             extraMakeFlags = [
               "KCFLAGS=-march=${march}"
               "CFLAGS_KERNEL=-mtune=${march}"

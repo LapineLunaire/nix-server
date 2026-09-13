@@ -4,10 +4,13 @@
   ...
 }: {
   sops.templates."ejabberd-secrets.yml" = {
+    restartUnits = ["ejabberd.service"];
     owner = "ejabberd";
     content = ''
-      sql_password: ${config.sops.placeholder."ejabberd-db-password"}
-      redis_password: ${config.sops.placeholder."redis-password"}
+      sql_password: |-
+        ${config.sops.placeholder."ejabberd-db-password"}
+      redis_password: |-
+        ${config.sops.placeholder."redis-password"}
     '';
   };
 

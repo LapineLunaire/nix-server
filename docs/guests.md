@@ -5,12 +5,14 @@ an autostarted guest in Sparkle's closure. `deps` orders guest startup; it does 
 wait for the application inside a guest to become ready.
 
 ```sh
-microvm -s <name>
-systemctl restart microvm@<name>
+doas microvm -s <name>
+doas systemctl restart microvm@<name>
 ```
 
 The console authenticates root over VSOCK using Sparkle's SSH host key. A host
 switch installs new runners; the auto-update service restarts changed running guests.
+After a manual switch, restart the changed guests explicitly. Console access needs
+root because it reads the host private key.
 
 To add a guest:
 
@@ -30,5 +32,7 @@ To add a guest:
 The CI runner uses a writable store overlay. Do not run Nix GC in it: overlay
 whiteouts can hide paths in the host store that the next guest generation needs.
 Sparkle stops this guest at noon and recreates its store and Nix database together.
-Attic refills the store on subsequent builds. The volume images are disposable and
-excluded from Borg backups; guest state under `/persist/vms/` is retained.
+Attic refills the store on subsequent builds. Volume images are excluded from Borg
+backups; application state under `/persist/vms/` is retained. Sparkle creates image directories with the microVM
+runner's ownership; pgAdmin creates its state directory for the container's UID 5050.
+After restoring state, preserve these numeric owners.

@@ -73,9 +73,12 @@
     max-jobs = 3;
   };
 
-  sops.templates."runner-token.env".content = ''
-    TOKEN=${config.sops.placeholder."forgejo-runner-token"}
-  '';
+  sops.templates."runner-token.env" = {
+    restartUnits = ["gitea-runner-sparkle.service"];
+    content = ''
+      TOKEN=${config.sops.placeholder."forgejo-runner-token"}
+    '';
+  };
 
   services.gitea-actions-runner = {
     package = pkgs.forgejo-runner;

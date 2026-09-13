@@ -1,4 +1,4 @@
-{...}: {
+{
   sops = {
     defaultSopsFile = ./secrets.yaml;
     secrets."vaultwarden-db-password" = {};

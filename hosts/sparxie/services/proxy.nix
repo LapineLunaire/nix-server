@@ -9,6 +9,7 @@
 
   sops.templates."caddy-pub-bnnuy-basicauth" = {
     owner = "caddy";
+    reloadUnits = ["caddy.service"];
     content = ''
       basic_auth {
         bnnuy ${config.sops.placeholder."pub-bnnuy-password-hash"}
@@ -27,7 +28,7 @@
     ];
     # Give ejabberd access to this certificate only.
     group = "bunny-cert";
-    # Restart ejabberd to load renewed certificates.
+    # Reload ejabberd's configuration to load renewed certificates.
     reloadServices = ["ejabberd.service"];
   };
 

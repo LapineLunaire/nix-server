@@ -1,4 +1,4 @@
-{...}: {
+{
   # Refuse to import a root pool still held by another system.
   boot.zfs.forceImportRoot = false;
 

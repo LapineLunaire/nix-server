@@ -32,15 +32,11 @@
     {proto = "icmp";}
   ];
 
-  sops.templates."forgejo.env".content = ''
-    FORGEJO__mailer__PASSWD=${config.sops.placeholder."forgejo-smtp-password"}
-  '';
-  systemd.services.forgejo.serviceConfig.EnvironmentFile = config.sops.templates."forgejo.env".path;
-
   services.forgejo = let
     inherit (config.host) smtp;
   in {
     enable = true;
+    secrets.mailer.PASSWD = config.sops.secrets."forgejo-smtp-password".path;
     database = {
       type = "postgres";
       host = net.vmAddress.postgres;

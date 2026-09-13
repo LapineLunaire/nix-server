@@ -14,10 +14,13 @@
   };
 
   # Read the database URL and signing key from the runtime environment.
-  sops.templates."atticd.env".content = ''
-    ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64=${config.sops.placeholder."attic-token-rs256-secret-base64"}
-    ATTIC_SERVER_DATABASE_URL=postgresql://attic:${config.sops.placeholder."attic-db-password"}@${net.vmAddress.postgres}/attic
-  '';
+  sops.templates."atticd.env" = {
+    restartUnits = ["atticd.service"];
+    content = ''
+      ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64=${config.sops.placeholder."attic-token-rs256-secret-base64"}
+      ATTIC_SERVER_DATABASE_URL=postgresql://attic:${config.sops.placeholder."attic-db-password"}@${net.vmAddress.postgres}/attic
+    '';
+  };
 
   services.atticd = {
     enable = true;

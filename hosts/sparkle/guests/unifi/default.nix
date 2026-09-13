@@ -56,7 +56,7 @@
     openFirewallServicePorts = false;
   };
 
-  # unifi-core requires an RSA certificate.
+  # Use RSA for compatibility with unifi-core.
   security.acme.certs."unifi.${web.domain}" = {
     keyType = "rsa4096";
     reloadServices = ["unifi-core-cert.service"];
@@ -67,7 +67,11 @@
     description = "Install ACME cert into unifi-core";
     after = ["podman-unifi-os-server.service"];
     wantedBy = ["multi-user.target"];
-    serviceConfig.Type = "oneshot";
+    serviceConfig = {
+      Type = "oneshot";
+      # ACME uses try-reload-or-restart, which skips inactive units.
+      RemainAfterExit = true;
+    };
     script = ''
       src=/var/lib/acme/unifi.${web.domain}
       dst=/var/lib/unifi-os-server/data/unifi-core/config

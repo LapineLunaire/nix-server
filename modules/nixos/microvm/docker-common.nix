@@ -1,4 +1,4 @@
-{...}: {
+{
   virtualisation.docker = {
     enable = true;
     daemon.settings.log-driver = "journald";

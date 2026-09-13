@@ -1,4 +1,4 @@
-{...}: {
+{
   sops = {
     defaultSopsFile = ./secrets.yaml;
     secrets."attic-token-rs256-secret-base64" = {};

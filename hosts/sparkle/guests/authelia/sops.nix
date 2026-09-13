@@ -1,17 +1,33 @@
-{...}: {
+{lib, ...}: {
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    secrets."authelia-jwt-secret".owner = "authelia-main";
-    secrets."authelia-session-secret".owner = "authelia-main";
-    secrets."authelia-storage-encryption-key".owner = "authelia-main";
-    secrets."authelia-oidc-hmac-secret".owner = "authelia-main";
-    secrets."authelia-oidc-issuer-key".owner = "authelia-main";
-    secrets."authelia-users".owner = "authelia-main";
-    secrets."authelia-db-password" = {};
-    secrets."authelia-smtp-password" = {};
-    secrets."authelia-forgejo-client-secret-hash" = {};
-    secrets."redis-authelia-password".owner = "redis-authelia";
-    secrets."pgadmin-oidc-client-secret-hash" = {};
-    templates."authelia.yaml".owner = "authelia-main";
+    secrets =
+      lib.genAttrs [
+        "authelia-jwt-secret"
+        "authelia-session-secret"
+        "authelia-storage-encryption-key"
+        "authelia-oidc-hmac-secret"
+        "authelia-oidc-issuer-key"
+        "authelia-users"
+        "authelia-db-password"
+        "authelia-smtp-password"
+      ] (_: {
+        owner = "authelia-main";
+        restartUnits = ["authelia-main.service"];
+      })
+      // {
+        "authelia-forgejo-client-secret-hash" = {};
+        "pgadmin-oidc-client-secret-hash" = {};
+        "redis-authelia-password" = {
+          owner = "redis-authelia";
+          group = "authelia-main";
+          mode = "0440";
+          restartUnits = ["redis-authelia.service" "authelia-main.service"];
+        };
+      };
+    templates."authelia.yaml" = {
+      owner = "authelia-main";
+      restartUnits = ["authelia-main.service"];
+    };
   };
 }

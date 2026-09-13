@@ -27,15 +27,6 @@
   ];
 
   sops.templates."authelia.yaml".content = ''
-    storage:
-      postgres:
-        password: '${config.sops.placeholder."authelia-db-password"}'
-    session:
-      redis:
-        password: '${config.sops.placeholder."redis-authelia-password"}'
-    notifier:
-      smtp:
-        password: '${config.sops.placeholder."authelia-smtp-password"}'
     identity_providers:
       oidc:
         clients:
@@ -74,6 +65,11 @@
               - code
   '';
 
+  systemd.services.authelia-main = {
+    after = ["redis-authelia.service"];
+    requires = ["redis-authelia.service"];
+  };
+
   services.redis.servers.authelia = {
     enable = true;
     bind = "127.0.0.1";
@@ -83,6 +79,11 @@
 
   services.authelia.instances.main = {
     enable = true;
+    environmentVariables = {
+      AUTHELIA_STORAGE_POSTGRES_PASSWORD_FILE = config.sops.secrets."authelia-db-password".path;
+      AUTHELIA_SESSION_REDIS_PASSWORD_FILE = config.sops.secrets."redis-authelia-password".path;
+      AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE = config.sops.secrets."authelia-smtp-password".path;
+    };
     settingsFiles = [config.sops.templates."authelia.yaml".path];
     secrets = {
       jwtSecretFile = config.sops.secrets."authelia-jwt-secret".path;
@@ -102,7 +103,7 @@
         };
         cookies = [
           {
-            domain = web.domain;
+            inherit (web) domain;
             authelia_url = web.origin.authelia;
           }
         ];

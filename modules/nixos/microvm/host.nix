@@ -17,6 +17,20 @@
     })
     registry;
 
+  # microvm.nix creates share roots, but its image formatter does not create parent directories.
+  systemd.tmpfiles.settings."20-microvm-volumes" =
+    lib.genAttrs (
+      lib.unique (lib.concatMap (name:
+        map (volume: builtins.dirOf volume.image) guestConfigurations.${name}.config.microvm.volumes)
+      (lib.attrNames registry))
+    ) (_: {
+      d = {
+        user = "microvm";
+        group = "kvm";
+        mode = "0750";
+      };
+    });
+
   # Keep guest network unit names separate from the host interfaces.
   systemd.network.networks = lib.mapAttrs' (name: _:
     lib.nameValuePair "20-vm-${name}" {

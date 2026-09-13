@@ -2,7 +2,10 @@
   config,
   pkgs,
   ...
-}: {
+}: let
+  dmz = import ../dmz-net.nix;
+  net = import ../guest-net.nix;
+in {
   services.smartd = {
     enable = true;
     # Alerts leave through the host's msmtp relay, configured in default.nix.
@@ -15,20 +18,13 @@
   # smartd depends on smartmontools but does not put smartctl on PATH.
   environment.systemPackages = [pkgs.smartmontools];
 
-  imports = [
-    (let
-      dmz = import ../dmz-net.nix;
-      net = import ../guest-net.nix;
-    in {
-      services.prometheus.exporters.node = {
-        enable = true;
-        listenAddress = dmz.hostAddress;
-        port = net.nodeExporterPort;
-      };
+  services.prometheus.exporters.node = {
+    enable = true;
+    listenAddress = dmz.hostAddress;
+    port = net.nodeExporterPort;
+  };
 
-      networking.firewall.extraInputRules = ''
-        ip saddr ${net.vmAddress.monitoring} tcp dport ${toString net.nodeExporterPort} accept
-      '';
-    })
-  ];
+  networking.firewall.extraInputRules = ''
+    ip saddr ${net.vmAddress.monitoring} tcp dport ${toString net.nodeExporterPort} accept
+  '';
 }
