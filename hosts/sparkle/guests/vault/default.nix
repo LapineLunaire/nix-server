@@ -1,55 +1,48 @@
-# Storage for the guests: the SAS HBA passed through by VFIO, the vault pool imported and unlocked here, and its datasets served to the guests over NFSv4 and to the clients over SMB.
 {
   config,
   dmz,
   net,
   trustedSubnets,
-  outputs,
   pkgs,
   ...
 }: let
-  # Who may reach the discovery services, and who a discovery reply may go back to. Browsing is link-local, so this covers the LAN, the one client network attached to the router that repeats mDNS and WS-Discovery. A VPN or off-site client mounts a share by name.
-  # The router is listed separately because its repeater re-emits the LAN's multicast with its own address. If browsing from the LAN stops working, that address is the thing to check.
+  # The router repeats LAN discovery with its own source address.
   discoverySources = [trustedSubnets.lan dmz.gateway];
   discoverySourcesNft = builtins.concatStringsSep ", " discoverySources;
 in {
   imports = [
-    # Scrub, trim and autosnapshot follow the pool into whichever system imports it.
-    outputs.nixosModules.zfs
+    ../../../../modules/nixos/zfs.nix
     ./samba.nix
     ./sops.nix
   ];
 
-  # Read as the option by Samba's hosts allow and the input chain below, and as the binding by the discovery reply in the egress declaration. From trusted-subnets.nix, so it cannot drift from sparkle's copy or the proxy's.
   host.trustedSubnets = trustedSubnets.all;
 
   microvm = {
     vcpu = 4;
     mem = 8192;
-    # ARC sizes itself against available memory, and a balloon reclaiming underneath it leaves the two chasing pressure the other created. Hence a fixed allocation, with the ARC ceiling stated below.
+    # Use fixed memory so balloon reclamation does not compete with ZFS ARC.
     balloon = false;
     devices = [
       {
-        # The SAS3008 carrying the vault pool, alone in IOMMU group 16. microvm.nix rebinds it to vfio-pci at VM start, so the host needs no vfio-pci.ids.
+        # SAS3008, isolated in IOMMU group 16; microvm.nix binds it to VFIO.
         bus = "pci";
         path = "0000:01:00.0";
       }
     ];
-    # The VT-d aperture cap, carried for the same reason as on the homeassistant guest: the controller's 64-bit BAR would otherwise land above what the IOMMU can map.
+    # Keep PCI BARs within the 39-bit VT-d aperture.
     cloud-hypervisor.extraArgs = ["--cpus" "max_phys_bits=39"];
   };
 
-  # The HBA's driver. The pool is not needed for boot, so it stays out of the initrd.
+  # Load the HBA driver after boot; the vault pool is not a root filesystem.
   boot.kernelModules = ["mpt3sas"];
 
-  # Must differ from sparkle's d38a0d1c: ZFS reads it to tell whether another system holds the pool.
+  # Keep the guest's ZFS host ID distinct from Sparkle's.
   networking.hostId = "4e9d7c21";
 
-  # ARC ceiling, since the allocation above is fixed.
   boot.extraModprobeConfig = "options zfs zfs_arc_max=4294967296";
 
-  # noauto keeps these out of local-fs.target, where they would be attempted before the key is loaded; nfs-server and smbd pull them up through RequiresMountsFor, and x-systemd.requires gives both Requires= and After= on the unlock below.
-  # These entries are also what generates zfs-import-vault.service, and with all of them noauto the zfs module hangs it off the mounts.
+  # Mount only after vault-unlock loads the key. NFS and Samba pull in their required mounts.
   fileSystems = let
     dataset = name: {
       device = "vault/${name}";
@@ -67,10 +60,10 @@ in {
     "/vault/torrents" = dataset "torrents";
   };
 
-  # Encryption blocks mounting, not importing, so the import runs keyless. Left at its default the generated import service would prompt through systemd-ask-password and hang boot.
+  # Import without prompting; vault-unlock supplies the key before mounting.
   boot.zfs.requestEncryptionCredentials = false;
 
-  # The mirror of the host's forward rules, generated from the same lists so the two cannot disagree.
+  # Match the host bridge's source restrictions.
   networking.firewall.extraInputRules = ''
     ip saddr { ${net.nfsClientsNft} } tcp dport ${toString net.nfsPort} accept
     ip saddr { ${config.host.trustedSubnetsNft} } tcp dport { 139, 445 } accept
@@ -80,9 +73,8 @@ in {
     ip daddr 239.255.255.250 udp dport 3702 accept
   '';
 
-  # smartd's alerts, plus avahi's and wsdd's announcements: a multicast response opens a new conntrack tuple, so it takes an accept of its own.
-  # The msmtp flow names no destination, since ProtonMail's addresses move, so it keeps the private-space exclusion. The wsdd reply is scoped by destination instead, to the same discovery sources the ingress rules admit, since the reply goes back to whichever of them sent the probe.
-  # Only the destination port is runtime state. wsdd binds its unicast socket to 3702 and answers from it (uc_send_socket in the wsdd source), so the flow is scoped by source port.
+  # Discovery replies need separate flows for new conntrack tuples.
+  # wsdd replies from port 3702 to the LAN client or its router.
   microvmGuest.egress = [
     {
       proto = "tcp";
@@ -105,7 +97,7 @@ in {
     }
   ];
 
-  # SMART on the passed-through array. Only this guest can see these disks, so only it can monitor them.
+  # Only this guest can monitor the passed-through disks.
   services.smartd = {
     enable = true;
     notifications.mail = {
@@ -117,7 +109,6 @@ in {
   # smartd references smartmontools but does not add smartctl to PATH.
   environment.systemPackages = [pkgs.smartmontools];
 
-  # The same ProtonMail submission endpoint and relay account sparkle uses, with this guest's own copy of the password.
   programs.msmtp = {
     enable = true;
     setSendmail = true;
@@ -132,7 +123,7 @@ in {
     };
   };
 
-  # The identity the writable export squashes to, so writes are owned by the torrents service whatever uid qbittorrent runs as.
+  # Squash NFS writes to the torrents account.
   users.groups.torrents.gid = 3000;
   users.users.torrents = {
     isSystemUser = true;
@@ -141,9 +132,8 @@ in {
     description = "Owner of the torrents dataset";
   };
 
-  # NFSv4 only, so the surface is tcp 2049 alone: no rpcbind, statd or mountd to admit, and nfs-utils builds the pseudo-root from these entries.
-  # all_squash throughout, because NFS with IP authorisation is AUTH_SYS and the server trusts the uid the client sends; squashing keeps that from becoming a uid-alignment problem across four guests.
-  # crossmnt lets the proxy see into the library child. kavita gets that child as its own export, whose separate fsid is what makes no_subtree_check a real boundary.
+  # Serve NFSv4 only. Squash client-supplied UIDs to each export's owner.
+  # crossmnt exposes the library child to the proxy; Kavita mounts that child directly.
   services.nfs.server = {
     enable = true;
     exports = ''
@@ -165,15 +155,15 @@ in {
     "/vault/torrents"
   ];
 
-  # Separate from the import so the dependency on the sops secret is stated explicitly.
-  # -L keeps keylocation off the pool: imported anywhere else it prompts, which is what leaves recovery possible without this guest or sops.
+  # Supply the key location for this load only; keep the pool's recovery prompt.
   systemd.services.vault-unlock = {
     description = "Load the vault pool's encryption key";
     requires = ["zfs-import-vault.service"];
     after = ["zfs-import-vault.service"];
     before = ["shutdown.target"];
     conflicts = ["shutdown.target"];
-    # The mounts requiring this are ordered before local-fs.target, which itself precedes sysinit.target and basic.target. Default dependencies would order this after basic.target and close a cycle that systemd resolves by cancelling local-fs.target's job. Nothing here needs sysinit.target: the sops secret is placed by an activation script, which runs before systemd starts.
+    # Run before local-fs.target without the default ordering after basic.target.
+    # SOPS installs the key during activation, before systemd starts.
     unitConfig.DefaultDependencies = "no";
     serviceConfig = {
       Type = "oneshot";

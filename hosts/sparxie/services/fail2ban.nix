@@ -1,4 +1,3 @@
-# fail2ban with an escalating ban time, jailing sshd.
 {...}: {
   services.fail2ban = {
     enable = true;

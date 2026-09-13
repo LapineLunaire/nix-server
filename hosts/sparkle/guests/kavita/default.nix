@@ -11,7 +11,7 @@
     initialBalloonMem = 512;
   };
 
-  # The library dataset, read-only over NFSv4. The whole export mounts here because kavita records its library paths absolutely, under /media/library, in its database.
+  # Keep the absolute library paths recorded in Kavita's database.
   fileSystems."/media/library" = {
     device = "${net.vmAddress.vault}:/vault/misc/library";
     fsType = "nfs4";

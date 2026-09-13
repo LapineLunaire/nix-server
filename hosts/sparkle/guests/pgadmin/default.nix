@@ -2,10 +2,9 @@
   config,
   net,
   web,
-  outputs,
   ...
 }: {
-  imports = [outputs.nixosModules.microvm-docker-common ./sops.nix];
+  imports = [../../../../modules/nixos/microvm/docker-common.nix ./sops.nix];
 
   microvm = {
     vcpu = 1;
@@ -46,7 +45,7 @@
     };
     environmentFiles = [config.sops.templates."pgadmin.env".path];
     volumes = ["/persist/var/lib/pgadmin:/var/lib/pgadmin"];
-    # Host networking so pgadmin binds the VM address directly and its ingress is gated by the guest input firewall; a published port is DNAT'd inside the guest and bypasses that chain entirely.
+    # Host networking keeps ingress subject to the guest input firewall.
     extraOptions = ["--network=host"];
   };
 }

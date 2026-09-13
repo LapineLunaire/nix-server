@@ -2,11 +2,10 @@
   config,
   net,
   lib,
-  outputs,
   pkgs,
   ...
 }: {
-  imports = [outputs.nixosModules.postgresql-passwords ./sops.nix];
+  imports = [../../../../modules/nixos/postgresql-passwords.nix ./sops.nix];
 
   microvm = {
     vcpu = 2;
@@ -24,7 +23,6 @@
       effective_cache_size = "1536MB";
       max_connections = 50;
     };
-    # The databases, roles and pg_hba lines below grow one entry per client guest.
     ensureDatabases = ["attic" "authelia" "forgejo" "vaultwarden"];
     ensureUsers = [
       {
@@ -58,13 +56,13 @@
     '';
   };
 
-  sops.templates."postgresql-passwords.sql".content = ''
-    ALTER USER attic       WITH PASSWORD '${config.sops.placeholder."attic-db-password"}';
-    ALTER USER authelia    WITH PASSWORD '${config.sops.placeholder."authelia-db-password"}';
-    ALTER USER forgejo     WITH PASSWORD '${config.sops.placeholder."forgejo-db-password"}';
-    ALTER USER vaultwarden WITH PASSWORD '${config.sops.placeholder."vaultwarden-db-password"}';
-    ALTER USER carmilla    WITH PASSWORD '${config.sops.placeholder."carmilla-db-password"}';
-  '';
+  services.postgresql.passwordFiles = {
+    attic = config.sops.secrets."attic-db-password".path;
+    authelia = config.sops.secrets."authelia-db-password".path;
+    forgejo = config.sops.secrets."forgejo-db-password".path;
+    vaultwarden = config.sops.secrets."vaultwarden-db-password".path;
+    carmilla = config.sops.secrets."carmilla-db-password".path;
+  };
 
   networking.firewall.extraInputRules = ''
     ip saddr { ${net.postgresClientsNft} } tcp dport ${toString net.postgresPort} accept

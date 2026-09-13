@@ -1,11 +1,11 @@
-{outputs, ...}: {
-  imports = [outputs.nixosModules.microvm-docker-common];
+{...}: {
+  imports = [../../../../modules/nixos/microvm/docker-common.nix];
 
   microvm = {
     vcpu = 2;
     mem = 2048;
     initialBalloonMem = 512;
-    # Caps the guest physical address width at the VT-d aperture (39 bits on this platform). cloud-hypervisor otherwise sizes the guest address space from the host CPU's phys bits (capped at 46) and places the passed-through controller's 64-bit BAR above what the IOMMU can map, failing at boot with IommuDmaMap EINVAL.
+    # Limit guest addresses to the 39-bit VT-d aperture; higher PCI BARs fail IOMMU mapping.
     cloud-hypervisor.extraArgs = ["--cpus" "max_phys_bits=39"];
     volumes = [
       {
@@ -18,13 +18,13 @@
     devices = [
       {
         bus = "pci";
-        # The PCH xHCI controller with the Zigbee stick, passed through via VFIO; the guest cp210x driver exposes the stick as ttyUSB0.
+        # Pass the Zigbee stick's USB controller through to the guest.
         path = "0000:00:14.0";
       }
     ];
   };
 
-  # Integrations are added at runtime and do not all speak 443; a cloud MQTT broker on 8883 would break under a port-scoped rule.
+  # Runtime integrations may use ports beyond HTTPS, such as MQTT on 8883.
   microvmGuest.egress = [
     {proto = "tcp";}
     {proto = "udp";}

@@ -3,11 +3,12 @@
   lib,
   ...
 }: let
-  # Interfaces pinned to stable names by MAC-matched .link files (see the networks in default.nix). Each gets a network/<name>-mac secret, a sops-rendered 10-<name>.link template, and an /etc/systemd/network symlink to it.
+  # Pin interface names by their SOPS-held MAC addresses.
   interfaces = ["ipmi0" "sfp0" "sfp1"];
 in {
   sops = {
     defaultSopsFile = ./secrets.yaml;
+    age.sshKeyPaths = ["/persist/etc/ssh/ssh_host_ed25519_key"];
 
     secrets =
       {

@@ -1,6 +1,5 @@
-# sparxie's auto-update: the shared signed switch, keeping the module's default reboot on kernel changes.
-{outputs, ...}: {
-  imports = [outputs.nixosModules.auto-update];
+{...}: {
+  imports = [../../modules/nixos/auto-update.nix];
 
   host.autoUpdate = {
     owner = "carmilla";

@@ -1,7 +1,12 @@
-# sshd reachable only from the trusted client subnets: closes the firewall's ssh port and accepts port 22 from host.trustedSubnets instead.
-{config, ...}: {
+{
+  config,
+  lib,
+  ...
+}: {
   services.openssh.openFirewall = false;
-  networking.firewall.extraInputRules = ''
-    ip saddr { ${config.host.trustedSubnetsNft} } tcp dport 22 accept
+  networking.firewall.extraInputRules = let
+    ports = lib.concatMapStringsSep ", " toString config.services.openssh.ports;
+  in ''
+    ip saddr { ${config.host.trustedSubnetsNft} } tcp dport { ${ports} } accept
   '';
 }

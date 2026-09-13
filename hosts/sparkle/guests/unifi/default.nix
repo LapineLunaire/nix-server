@@ -1,11 +1,10 @@
 {
   net,
   web,
-  outputs,
   ...
 }: {
   imports = [
-    outputs.nixosModules.acme
+    ../../../../modules/nixos/acme.nix
     ./sops.nix
   ];
 
@@ -28,8 +27,7 @@
     ];
   };
 
-  # Image pulls and AP firmware (port 80: some controller versions fetch firmware over plain HTTP from fw-download.ubnt.com, which is Cloudflare-fronted through a weighted CNAME with 60/300s TTLs and so cannot be pinned to an address).
-  # ACME issuance for unifi.lunaire.moe goes through lego (modules/nixos/acme.nix), whose propagation check queries the zone's authoritative nameservers directly. Cloudflare's addresses for those move, so this flow names no destination. TCP as well as UDP, since a truncated answer falls back to it.
+  # Allow image pulls, firmware downloads and DNS-01 propagation checks.
   microvmGuest.egress = [
     {
       proto = "tcp";
@@ -49,24 +47,22 @@
 
   services.unifi-os-server = {
     enable = true;
-    # Advertised to UniFi devices as the inform address; the APs sit on the management network, routed to the VM's own DMZ address with nothing NAT'ing in between, and the forward chain in hosts/sparkle/dmz-bridge.nix admits their inform/adoption/service traffic across that hop.
+    # Advertise the guest address to APs on the management network.
     uosSystemIP = net.vmAddress.unifi;
-    # No reverse proxy; serve the UI straight on 443 with the real cert installed into unifi-core (see unifi-core-cert below).
+    # Serve HTTPS directly with the certificate installed below.
     ports.ui = 443;
-    # The host forward chain source-scopes ingress (see hosts/sparkle/dmz-bridge.nix), so the module's firewall openers stay off.
+    # The host bridge firewall controls access to the container's published ports.
     openFirewallUiPort = false;
     openFirewallServicePorts = false;
   };
 
-  # unifi-core only accepts an RSA cert through its unifi-core.crt/.key files, so this one cert opts out of the ec384 default.
+  # unifi-core requires an RSA certificate.
   security.acme.certs."unifi.${web.domain}" = {
     keyType = "rsa4096";
     reloadServices = ["unifi-core-cert.service"];
   };
 
-  # unifi-core reads unifi-core.crt/.key on container start, so installing the cert and restarting the container picks it up.
-  # Change detection hashes the source cert to skip restarting the container when nothing changed.
-  # security.acme reloads this unit on renewal; wantedBy covers the boot case.
+  # Install renewed certificates and restart the container only when the certificate changes.
   systemd.services.unifi-core-cert = {
     description = "Install ACME cert into unifi-core";
     after = ["podman-unifi-os-server.service"];

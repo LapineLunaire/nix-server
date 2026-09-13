@@ -1,4 +1,3 @@
-# Daily auto-update on top of system.autoUpgrade. An ExecStartPre verifies the origin branch head against the trusted signers before the module builds and switches. allowReboot defaults on so kernel changes take effect, and hosts can override it.
 {
   config,
   lib,
@@ -6,9 +5,8 @@
   ...
 }: let
   inherit (config.host) flakePath;
-  inherit (config.host.autoUpdate) owner branch;
 in {
-  # The format requires a principals field. Git decides trust on the key being present in this file and reports back whatever principal sits beside it, so the wildcard states the scope the verification actually has.
+  # Trust these keys regardless of the principal Git reports.
   host.autoUpdate.allowedSigners = let
     ciKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPVAUGIq89EoX6Edi6iE8tghHeRqbmUmQJJJXcWfa5Nm";
   in ''
@@ -20,10 +18,10 @@ in {
 
   system.autoUpgrade = {
     enable = true;
-    # nixpkgs splices this into flags as an unquoted --flake argument, and the unit script interpolates flags with toString, so $rev is expanded by the shell from the value set in the mkBefore block below.
+    # The upgrade script expands $rev to the verified commit below.
     flake = "git+file://${flakePath}?rev=$rev";
     allowReboot = lib.mkDefault true;
-    # Drops the --upgrade flag, which is for channels. This flake is upgraded by its own lockfile.
+    # Use the flake lock rather than channel upgrades.
     upgrade = false;
     dates = "03:00";
     randomizedDelaySec = "15min";
@@ -31,6 +29,7 @@ in {
   };
 
   systemd.services.nixos-upgrade.script = let
+    inherit (config.host.autoUpdate) owner branch;
     allowedSigners = pkgs.writeText "git-allowed-signers" config.host.autoUpdate.allowedSigners;
     verifyOriginBranch = pkgs.writeShellScript "verify-origin-${branch}" ''
       set -euo pipefail
@@ -53,7 +52,7 @@ in {
       rev=$(${verifyOriginBranch})
     '';
 
-  # The upgrade runs git and nix's flake fetcher as root against this user-owned checkout, so the path has to be trusted or both refuse it.
+  # Allow root to read the user-owned checkout when building the verified revision.
   environment.etc."gitconfig".text = ''
     [safe]
     directory = ${flakePath}

@@ -3,19 +3,16 @@
   net,
   trustedSubnets,
   web,
-  outputs,
   ...
 }: {
   imports = [
     # Git-over-SSH on port 22 uses the system sshd; open it to git clients on the trusted subnets.
-    outputs.nixosModules.trusted-ssh-ingress
+    ../../../../modules/nixos/trusted-ssh-ingress.nix
     ./sops.nix
   ];
 
-  # Client subnets trusted to reach forgejo's git-ssh. From trusted-subnets.nix, the same list sparkle's forward chain admits to port 22 on this guest, so the two ends of that flow cannot drift.
   host.trustedSubnets = trustedSubnets.all;
 
-  # The ProtonMail SMTP submission endpoint and the noreply relay account for forgejo's outgoing mail; the password secret lives in this VM's sops.
   host.smtp = {
     host = "smtp.protonmail.ch";
     port = "587";

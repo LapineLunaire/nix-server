@@ -1,4 +1,3 @@
-# sparxie's public Caddy vhosts: the bunny.enterprises site and Element.
 {
   config,
   lib,
@@ -17,9 +16,8 @@
     '';
   };
 
-  # ejabberd reads this cert off disk, so lego issues it. The apex must stay in it, since bunny.enterprises is the XMPP host and c2s and s2s identity depend on it. Caddy issues the apex web vhost a separate certificate of its own.
+  # Keep the apex in ejabberd's certificate for XMPP identity checks.
   security.acme.certs."bunny.enterprises" = {
-    # One SAN certificate covering every ejabberd component subdomain: conference (MUC), proxy (SOCKS5 file transfer), pubsub, and upload (HTTP upload).
     extraDomainNames = [
       "xmpp.bunny.enterprises"
       "conference.bunny.enterprises"
@@ -27,9 +25,9 @@
       "pubsub.bunny.enterprises"
       "upload.bunny.enterprises"
     ];
-    # A dedicated group for this cert's files, so ejabberd can read this one and no other.
+    # Give ejabberd access to this certificate only.
     group = "bunny-cert";
-    # ejabberd loads the cert files at startup and re-reads them only on restart, so reload it when this cert renews.
+    # Restart ejabberd to load renewed certificates.
     reloadServices = ["ejabberd.service"];
   };
 
@@ -37,17 +35,9 @@
   users.users.ejabberd.extraGroups = ["bunny-cert"];
 
   services.caddy.virtualHosts = let
-    element-web = pkgs.element-web.override {
-      conf.default_server_config."m.homeserver" = {
-        base_url = "https://matrix.bunny.enterprises";
-        server_name = "bunny.enterprises";
-      };
-    };
-
     inherit (config.caddy) securityHeaders tlsDns;
     wg = config.host.wireguardTunnel;
     sparkleTunnelWeb = import ../../sparkle/tunnel-web.nix;
-    # Every vhost opens with its own Caddy-issued certificate and the shared security headers.
     mkVhost = body: {
       extraConfig =
         ''
@@ -56,9 +46,8 @@
         ''
         + body;
     };
-    # The port tuwunel.nix binds the homeserver to, on the loopback address it listens on there.
     tuwunelPort = lib.head config.services.matrix-tuwunel.settings.global.port;
-    # Federation on 8448 and HTTPS on 443 serve the same homeserver behind the same certificate.
+    # Serve HTTPS and federation with the same certificate.
     matrixVhost = mkVhost ''
       reverse_proxy [::1]:${toString tuwunelPort}
     '';
@@ -80,10 +69,18 @@
 
       file_server
     '';
-    "chat.bunny.enterprises" = mkVhost ''
-      root * ${element-web}
-      file_server
-    '';
+    "chat.bunny.enterprises" = let
+      element-web = pkgs.element-web.override {
+        conf.default_server_config."m.homeserver" = {
+          base_url = "https://matrix.bunny.enterprises";
+          server_name = "bunny.enterprises";
+        };
+      };
+    in
+      mkVhost ''
+        root * ${element-web}
+        file_server
+      '';
     "matrix.bunny.enterprises" = matrixVhost;
     "matrix.bunny.enterprises:8448" = matrixVhost;
     "pub.bunny.enterprises" = mkVhost ''

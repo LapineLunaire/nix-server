@@ -1,11 +1,10 @@
-# Samba serving the vault datasets to the trusted client subnets, with avahi and wsdd for discovery.
 {
   config,
   lib,
   pkgs,
   ...
 }: {
-  # valid users and force user need a real account, and this guest carries its own. SMB authenticates against the passdb in /var/lib/samba, so this account is locked and shell-less.
+  # Samba uses its own passdb; this Unix account needs no login access.
   users.users.carmilla = {
     isNormalUser = true;
     uid = 1000;
@@ -80,7 +79,7 @@
     openFirewall = false;
   };
 
-  # One entry per path a share serves, plus the library child of the misc dataset, which is a mount of its own and must be up before smbd starts.
+  # Mount the library child dataset before serving its parent share.
   systemd.services.samba-smbd.unitConfig.RequiresMountsFor = [
     "/vault/carmilla"
     "/vault/misc"

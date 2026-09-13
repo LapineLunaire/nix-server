@@ -1,4 +1,3 @@
-# Borg backup to the Hetzner Storage Box from a ZFS snapshot of <pool>/persist. Call as (outputs.lib.mkBorgBackup { pool = "sparxie"; startAt = "03:00"; }).
 {
   pool,
   startAt,
@@ -16,7 +15,7 @@
   };
 
   services.borgbackup.jobs.hetzner = {
-    # Placeholder. preHook exports the real URL as BORG_REPO, which borg uses instead. It must not begin with "/" or ".", since nixpkgs reads that as a local repo and would then add RequiresMountsFor, a ReadWritePaths entry, and a tmpfiles rule for it.
+    # BORG_REPO supplies the runtime URL. A non-path placeholder avoids local-repository setup.
     repo = "unset";
     paths = ["/mnt/borg-snapshot"];
     encryption = {
@@ -25,14 +24,14 @@
     };
     environment.BORG_RSH = "ssh -i ${config.sops.secrets."borg-ssh-key".path} -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${config.sops.secrets."borg-known-hosts".path}";
     compression = "auto,zstd";
-    # The microvm volume images: container and Nix stores, none of them state, and each rewritten often enough that a nightly copy of tens of gigabytes buys nothing. The paths are inside the snapshot mount, which is what borg walks. sh: rather than the default fnmatch, whose * would cross the separator and take every guest's directory with it.
+    # Exclude disposable guest caches. sh: keeps * within one path component.
     exclude = ["sh:/mnt/borg-snapshot/vms/*/volumes"];
-    # Run a backup missed while the host was down at the next boot. The stamp this reads lives in /var/lib/systemd/timers, which host-base persists, so it survives the tmpfs root. The same option gives the timer network-online ordering, which nixpkgs gates on it together with the repo being remote.
+    # Persist missed runs; /var/lib/systemd/timers survives the tmpfs root.
     persistentTimer = true;
     inherit startAt;
     preHook = ''
       export BORG_REPO=$(< ${config.sops.secrets."borg-repo".path})
-      # Unmount any snapshot left by an interrupted run: a mounted snapshot makes the destroy below fail, and the create then aborts on the leftover.
+      # Recover the mount and snapshot left by an interrupted backup.
       ${pkgs.util-linux}/bin/umount /mnt/borg-snapshot 2>/dev/null || true
       ${pkgs.zfs}/bin/zfs destroy ${pool}/persist@borg-backup 2>/dev/null || true
       ${pkgs.zfs}/bin/zfs snapshot ${pool}/persist@borg-backup
@@ -50,7 +49,7 @@
     };
   };
 
-  # The unit runs under ProtectSystem = "strict", which leaves only the module's own ReadWritePaths writable. The snapshot mount needs /mnt on top of those.
+  # Allow the snapshot mount under ProtectSystem=strict.
   systemd.services."borgbackup-job-hetzner".serviceConfig = {
     ReadWritePaths = ["/mnt"];
   };

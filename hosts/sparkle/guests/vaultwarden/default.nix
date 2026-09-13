@@ -6,7 +6,6 @@
 }: {
   imports = [./sops.nix];
 
-  # The ProtonMail SMTP submission endpoint and the noreply relay account for vaultwarden's outgoing mail; the password secret lives in this VM's sops.
   host.smtp = {
     host = "smtp.protonmail.ch";
     port = "587";

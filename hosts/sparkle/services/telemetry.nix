@@ -1,4 +1,3 @@
-# sparkle's own telemetry. The monitoring stack itself lives in the monitoring guest.
 {
   config,
   pkgs,
@@ -21,7 +20,6 @@
       dmz = import ../dmz-net.nix;
       net = import ../guest-net.nix;
     in {
-      # node_exporter on sparkle, bound to the dmz0 address so the monitoring guest can scrape it.
       services.prometheus.exporters.node = {
         enable = true;
         listenAddress = dmz.hostAddress;

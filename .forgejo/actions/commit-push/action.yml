@@ -2,13 +2,16 @@ name: Commit and push
 description: Stage the given paths, commit signed with the repo git identity, and push
 inputs:
   paths:
-    description: Space-separated paths to stage
+    description: Literal paths to commit, one per line
     required: true
   message:
     description: Commit message, with the current date appended to it
     required: true
   ssh-signing-key:
     description: Private SSH key used to sign the commit
+    required: true
+  push-token:
+    description: Repository token used only for the push
     required: true
 runs:
   using: composite
@@ -19,16 +22,36 @@ runs:
         SSH_SIGNING_KEY: ${{ inputs.ssh-signing-key }}
         PATHS: ${{ inputs.paths }}
         MESSAGE: ${{ inputs.message }}
+        PUSH_TOKEN: ${{ inputs.push-token }}
+        SERVER_URL: ${{ github.server_url }}
       run: |
+        set -euo pipefail
         umask 077
-        key="$RUNNER_TEMP/commit-signing-key"
+        key=$(mktemp "$RUNNER_TEMP/commit-signing-key.XXXXXX")
         trap 'rm -f "$key"' EXIT
         printf '%s\n' "$SSH_SIGNING_KEY" > "$key"
-        git config user.name "Carmilla"
-        git config user.email "carmilla@lunaire.eu"
-        git config gpg.format ssh
-        git config user.signingkey "$key"
-        git config commit.gpgsign true
-        git add $PATHS
-        git commit -m "$MESSAGE $(date +%Y-%m-%d)"
-        git push
+        unset SSH_SIGNING_KEY
+
+        paths=()
+        while IFS= read -r path; do
+          if [ -n "$path" ]; then
+            paths+=("$path")
+          fi
+        done <<< "$PATHS"
+
+        if [ "${#paths[@]}" -eq 0 ]; then
+          echo "No paths supplied" >&2
+          exit 1
+        fi
+
+        git --literal-pathspecs add -- "${paths[@]}"
+        git --literal-pathspecs \
+          -c user.name=Carmilla -c user.email=carmilla@lunaire.eu \
+          -c gpg.format=ssh -c user.signingkey="$key" -c commit.gpgsign=true \
+          commit --only -m "$MESSAGE $(date +%Y-%m-%d)" -- "${paths[@]}"
+
+        # Authenticate this command without storing a token in the checkout or putting it in argv.
+        GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0="http.${SERVER_URL%/}/.extraheader" \
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')" \
+          git push

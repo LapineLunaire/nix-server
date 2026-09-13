@@ -1,10 +1,11 @@
 {...}: {
   sops = {
     defaultSopsFile = ./secrets.yaml;
+    age.sshKeyPaths = ["/persist/etc/ssh/ssh_host_ed25519_key"];
 
     secrets."carmilla-password-hash".neededForUsers = true;
-    secrets."ejabberd-db-password" = {};
-    secrets."carmilla-db-password" = {};
+    secrets."ejabberd-db-password".restartUnits = ["postgresql-passwords.service"];
+    secrets."carmilla-db-password".restartUnits = ["postgresql-passwords.service"];
     secrets."redis-password".owner = "redis";
     secrets."tuwunel-registration-token" = {};
     secrets."pub-bnnuy-password-hash" = {};

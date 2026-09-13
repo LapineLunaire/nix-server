@@ -1,11 +1,9 @@
-# The databases ejabberd runs on: PostgreSQL with its role passwords applied from sops after startup, and Redis for session and cache storage.
 {
   config,
-  outputs,
   pkgs,
   ...
 }: {
-  imports = [outputs.nixosModules.postgresql-passwords];
+  imports = [../../../modules/nixos/postgresql-passwords.nix];
 
   services.postgresql = {
     enable = true;
@@ -27,12 +25,9 @@
     '';
   };
 
-  sops.templates."postgresql-passwords.sql" = {
-    owner = "postgres";
-    content = ''
-      ALTER USER ejabberd WITH PASSWORD '${config.sops.placeholder."ejabberd-db-password"}';
-      ALTER USER carmilla WITH PASSWORD '${config.sops.placeholder."carmilla-db-password"}';
-    '';
+  services.postgresql.passwordFiles = {
+    ejabberd = config.sops.secrets."ejabberd-db-password".path;
+    carmilla = config.sops.secrets."carmilla-db-password".path;
   };
 
   # ejabberd's default_ram_db, on db 1 as set in its own config.

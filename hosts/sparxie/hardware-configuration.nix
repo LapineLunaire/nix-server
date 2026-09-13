@@ -16,39 +16,50 @@
   boot.kernelModules = [];
   boot.extraModulePackages = [];
 
-  fileSystems."/" = {
-    device = "none";
-    fsType = "tmpfs";
-    options = [
-      "defaults"
-      "size=2G"
-      "mode=755"
-    ];
-  };
+  fileSystems = let
+    temporary = {
+      device = "none";
+      fsType = "tmpfs";
+      options = ["defaults" "size=4G" "mode=1777" "nosuid" "nodev" "noexec"];
+    };
+  in {
+    "/" = {
+      device = "none";
+      fsType = "tmpfs";
+      options = [
+        "defaults"
+        "size=2G"
+        "mode=755"
+      ];
+    };
 
-  fileSystems."/nix" = {
-    device = "sparxie/nix";
-    fsType = "zfs";
-    options = ["zfsutil"];
-  };
+    "/nix" = {
+      device = "sparxie/nix";
+      fsType = "zfs";
+      options = ["zfsutil"];
+    };
 
-  fileSystems."/persist" = {
-    device = "sparxie/persist";
-    fsType = "zfs";
-    options = ["zfsutil"];
-    neededForBoot = true;
-  };
+    "/persist" = {
+      device = "sparxie/persist";
+      fsType = "zfs";
+      options = ["zfsutil"];
+      neededForBoot = true;
+    };
 
-  fileSystems."/home" = {
-    device = "sparxie/home";
-    fsType = "zfs";
-    options = ["zfsutil"];
-  };
+    "/home" = {
+      device = "sparxie/home";
+      fsType = "zfs";
+      options = ["zfsutil"];
+    };
 
-  fileSystems."/boot" = {
-    device = "/dev/disk/by-uuid/BCA2-56F9";
-    fsType = "vfat";
-    options = ["umask=0077"];
+    "/boot" = {
+      device = "/dev/disk/by-uuid/BCA2-56F9";
+      fsType = "vfat";
+      options = ["umask=0077"];
+    };
+
+    "/tmp" = temporary;
+    "/var/tmp" = temporary;
   };
 
   swapDevices = [];

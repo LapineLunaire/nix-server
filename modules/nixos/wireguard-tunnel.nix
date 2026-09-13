@@ -1,4 +1,3 @@
-# The point-to-point tunnel described by host.wireguardTunnel: wg0 carrying this system's address and a single peer, with the private key from this host's sops. The listening end opens its port; the dialing end holds the tunnel open with keepalives.
 {
   config,
   lib,

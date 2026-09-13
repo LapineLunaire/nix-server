@@ -9,7 +9,7 @@
     initialBalloonMem = 256;
   };
 
-  # Monitors and notification channels live in this guest's database, not here: a port monitor can target any port and a ping monitor needs ICMP. Narrowing this would break checks silently, so it keeps the reach it has today.
+  # Monitors are configured at runtime and may use any port.
   microvmGuest.egress = [
     {proto = "tcp";}
     {proto = "udp";}

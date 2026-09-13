@@ -1,4 +1,3 @@
-# carmilla's home-manager programs: the shell and the terminal tooling.
 {
   config,
   pkgs,
@@ -16,7 +15,7 @@
 
   programs.fzf.enable = true;
 
-  # Behaviour only: this account authors no commits, so it carries no identity or signing key.
+  # This account does not create commits.
   programs.git = {
     enable = true;
     settings = {
@@ -48,7 +47,6 @@
 
   programs.nixvim = {
     enable = true;
-    # Reuse the host's nixpkgs instance for nixvim's packages.
     nixpkgs.pkgs = pkgs;
     defaultEditor = true;
     viAlias = true;
@@ -99,7 +97,7 @@
       grep = "grep --color=auto";
       egrep = "egrep --color=auto";
       fgrep = "fgrep --color=auto";
-      # --reflink=auto uses CoW where the filesystem supports it and copies otherwise; --sparse=always skips writing blocks of zeroes.
+      # Use CoW where supported and preserve sparse files.
       cp = "cp --reflink=auto --sparse=always";
       sops = "SOPS_AGE_KEY=\"$(doas cat /etc/ssh/ssh_host_ed25519_key | ssh-to-age -private-key)\" sops";
     };

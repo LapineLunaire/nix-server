@@ -1,21 +1,19 @@
-# sparkle's auto-update: the shared signed switch with no reboot, then a restart of the guests whose config the switch changed.
 {
   config,
-  outputs,
   pkgs,
   ...
 }: {
-  imports = [outputs.nixosModules.auto-update];
+  imports = [../../modules/nixos/auto-update.nix];
 
   host.autoUpdate = {
     owner = "carmilla";
     branch = "main";
   };
 
-  # No reboot: sparkle's root pool is encrypted with keylocation=prompt, so an unattended reboot would stop at the passphrase. Kernel changes are applied on a deliberate reboot instead.
+  # The encrypted root pool requires an interactive unlock; reboot manually for kernel updates.
   system.autoUpgrade.allowReboot = false;
   systemd.services.nixos-upgrade.serviceConfig.ExecStartPost =
-    # Restart only guests whose booted runner differs from the one the switch installed.
+    # Restart guests whose installed runner differs from the booted one.
     pkgs.writeShellScript "restart-microvm-guests" ''
       set -euo pipefail
       systemctl() { ${config.systemd.package}/bin/systemctl "$@"; }

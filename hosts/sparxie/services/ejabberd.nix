@@ -1,4 +1,3 @@
-# The bunny.enterprises XMPP server: the store-rendered ejabberd.yml with its listeners, ACLs and modules, the sops template holding the passwords it includes, and the ports it needs open.
 {
   config,
   pkgs,
@@ -14,7 +13,7 @@
 
   services.ejabberd = let
     wan = import ../wan-net.nix;
-    # The non-secret config, rendered into the store so changes show up in system diffs; ejabberd merges the sops-held passwords in through include_config_file.
+    # Keep public settings in the store; include secrets at runtime.
     ejabberdConfig = pkgs.writeText "ejabberd.yml" ''
       include_config_file: ${config.sops.templates."ejabberd-secrets.yml".path}
 
@@ -286,7 +285,7 @@
   };
 
   systemd.services.ejabberd = {
-    # Wait for postgresql-passwords so the ejabberd role's password is set before the first DB connection.
+    # Set the database password before ejabberd connects.
     after = [
       "postgresql.service"
       "postgresql-passwords.service"
@@ -300,7 +299,7 @@
   };
 
   networking.firewall = {
-    # 5222: XMPP c2s STARTTLS, 5223: XMPP c2s Direct TLS, 5269: XMPP s2s, 5443: HTTPS (BOSH/upload), 7777: SOCKS5 file transfer proxy (mod_proxy65), 3478 UDP: STUN/TURN. The web admin listens on 5280 loopback only.
+    # XMPP clients, federation, HTTPS uploads and SOCKS5 transfers. Admin HTTP stays on loopback.
     allowedTCPPorts = [
       5222
       5223

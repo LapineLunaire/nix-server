@@ -1,16 +1,12 @@
-{
-  lib,
-  outputs,
-  ...
-}: {
+{lib, ...}: {
   imports = [
-    (outputs.lib.mkBorgBackup {
+    (import ../../../modules/nixos/borg-backup.nix {
       pool = "sparxie";
       startAt = "03:00";
     })
-    outputs.nixosModules.acme
-    outputs.nixosModules.caddy
-    outputs.nixosModules.wireguard-tunnel
+    ../../../modules/nixos/acme.nix
+    ../../../modules/nixos/caddy.nix
+    ../../../modules/nixos/wireguard-tunnel.nix
     ./database.nix
     ./ejabberd.nix
     ./fail2ban.nix
@@ -18,6 +14,6 @@
     ./tuwunel.nix
   ];
 
-  # sparxie is a VPS with no firmware to manage. host-base enables fwupd unconditionally, so overriding it needs mkForce.
+  # The VPS has no firmware to manage.
   services.fwupd.enable = lib.mkForce false;
 }

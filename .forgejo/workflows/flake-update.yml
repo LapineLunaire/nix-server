@@ -1,6 +1,6 @@
 name: Update
 
-# One daily run. The digest refresh is a job the update depends on rather than an earlier cron, so ordering is a needs: edge and a slow digest job delays the update instead of racing it.
+# Refresh digests before updating the lockfile.
 on:
   schedule:
     - cron: "0 2 * * *"
@@ -8,23 +8,35 @@ on:
 
 jobs:
   digests:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: nixos
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Update digests
         id: digests
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          # Weekly, not daily: registry digests move slowly and each change is a guest rebuild.
-          # The node image is gone with the container runner: jobs run natively now, so no image is pinned for them.
-          if [ "$(date +%u)" != "1" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+          # Refresh container images weekly, or on a manual run.
+          if [ "$(date +%u)" != "1" ] && [ "$EVENT_NAME" != "workflow_dispatch" ]; then
             echo "not Monday, skipping"
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          set -euo pipefail
           pgadmin=$(skopeo inspect --format '{{.Digest}}' docker://dpage/pgadmin4:latest)
           ha=$(skopeo inspect --format '{{.Digest}}' docker://ghcr.io/home-assistant/home-assistant:stable)
+
+          for digest in "$pgadmin" "$ha"; do
+            if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+              echo "Invalid container digest: $digest" >&2
+              exit 1
+            fi
+          done
 
           sed -i "s|dpage/pgadmin4@sha256:[a-f0-9]*|dpage/pgadmin4@${pgadmin}|" hosts/sparkle/guests/pgadmin/default.nix
           sed -i "s|home-assistant/home-assistant@sha256:[a-f0-9]*|home-assistant/home-assistant@${ha}|" hosts/sparkle/guests/homeassistant/default.nix
@@ -35,13 +47,22 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check and build
+        if: steps.digests.outputs.changed == 'true'
+        run: |
+          nix flake check --all-systems --no-build --no-write-lock-file --option allow-import-from-derivation false
+          nix build --no-link .#nixosConfigurations.sparkle.config.system.build.toplevel
+
       - name: Commit and push
         if: steps.digests.outputs.changed == 'true'
         uses: ./.forgejo/actions/commit-push
         with:
-          paths: hosts/sparkle/guests/pgadmin/default.nix hosts/sparkle/guests/homeassistant/default.nix
+          paths: |
+            hosts/sparkle/guests/pgadmin/default.nix
+            hosts/sparkle/guests/homeassistant/default.nix
           message: "sparkle: update container image digests"
           ssh-signing-key: ${{ secrets.CI_SIGNING_KEY }}
+          push-token: ${{ github.token }}
 
   update:
     needs: digests
@@ -52,6 +73,7 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           ref: ${{ github.ref_name }}
+          persist-credentials: false
 
       - name: Update flake inputs
         run: nix flake update
@@ -65,11 +87,12 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # A go, xcaddy or caddy bump changes the vendored tree behind the plugin build's fixed-output hash, which evaluation cannot see. The plain build no longer catches it: once a path under the recorded hash is in the cache it substitutes cleanly, so --rebuild re-runs the fetch and compares. It errors when the path was never built, which is why it follows a build rather than replacing it.
+      # Rebuild the plugin source to detect stale fixed-output hashes hidden by substitution.
+      # Build first because --rebuild requires an existing output.
       - name: Refresh the caddy plugin hash
         if: steps.check.outputs.changed == 'true'
         run: |
-          set -o pipefail
+          set -euo pipefail
           target=".#nixosConfigurations.proxy.config.services.caddy.package.src"
           err=""
           if out=$(nix build --no-link "$target" 2>&1); then
@@ -85,16 +108,20 @@ jobs:
             exit 1
           fi
           old=$(sed -n 's/^ *hash = "\(sha256-[^"]*\)";$/\1/p' modules/nixos/caddy.nix | head -1)
+          if [[ ! "$old" =~ ^sha256-[A-Za-z0-9+/]{43}=$ ]]; then
+            echo "Cannot identify the current Caddy plugin hash" >&2
+            exit 1
+          fi
           sed -i "s|\"$old\"|\"$got\"|" modules/nixos/caddy.nix
           echo "caddy plugin hash refreshed: $old -> $got"
           nix build --no-link "$target"
 
-      # Evaluate both hosts and every guest, including aarch64 sparxie; reject build-dependent evaluation before starting builds.
+      # Evaluate both architectures and reject build-dependent evaluation.
       - name: Check flake outputs
         if: steps.check.outputs.changed == 'true'
         run: nix flake check --all-systems --no-build --no-write-lock-file --option allow-import-from-derivation false
 
-      # sparkle's closure references every guest's runner through microvm.vms, so this target builds every registered guest. The x86_64 runner does not build sparxie's aarch64 closure.
+      # Sparkle includes every guest runner. Sparxie is evaluated but not built here.
       - name: Build
         id: build
         if: steps.check.outputs.changed == 'true'
@@ -106,22 +133,29 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+          STORE_PATH: ${{ steps.build.outputs.path }}
         run: |
-          # Cache publication is optional when ATTIC_TOKEN is absent; a failed push with a configured token fails the job.
+          # Cache uploads are optional until the token is configured.
           if [ -z "$ATTIC_TOKEN" ]; then
             echo "ATTIC_TOKEN not set, skipping push"
             exit 0
           fi
-          # Scoped to the job: HOME on this runner is persistent, and attic login writes the token
-          # there in cleartext.
-          export XDG_CONFIG_HOME="$RUNNER_TEMP/attic-config"
+          # Attic stores its token in cleartext. Restrict access and remove it on success or failure.
+          umask 077
+          export XDG_CONFIG_HOME
+          XDG_CONFIG_HOME=$(mktemp -d "$RUNNER_TEMP/attic-config.XXXXXX")
+          trap 'rm -rf -- "$XDG_CONFIG_HOME"' EXIT
           attic login lunaire https://cache.lunaire.moe/ "$ATTIC_TOKEN"
-          attic push lunaire:server "${{ steps.build.outputs.path }}"
+          unset ATTIC_TOKEN
+          attic push lunaire:server "$STORE_PATH"
 
       - name: Commit and push
         if: steps.check.outputs.changed == 'true'
         uses: ./.forgejo/actions/commit-push
         with:
-          paths: flake.lock modules/nixos/caddy.nix
+          paths: |
+            flake.lock
+            modules/nixos/caddy.nix
           message: "flake: update inputs"
           ssh-signing-key: ${{ secrets.CI_SIGNING_KEY }}
+          push-token: ${{ github.token }}

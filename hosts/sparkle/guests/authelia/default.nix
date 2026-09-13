@@ -3,12 +3,9 @@
   net,
   web,
   ...
-}: let
-  inherit (config.host) smtp;
-in {
+}: {
   imports = [./sops.nix];
 
-  # The ProtonMail SMTP submission endpoint and the noreply relay account for authelia's outgoing mail; the password secret lives in this VM's sops.
   host.smtp = {
     host = "smtp.protonmail.ch";
     port = "587";
@@ -124,7 +121,9 @@ in {
         timeout = "60s";
       };
       access_control.default_policy = "two_factor";
-      notifier.smtp = {
+      notifier.smtp = let
+        inherit (config.host) smtp;
+      in {
         address = "smtp://${smtp.host}:${smtp.port}";
         username = smtp.user;
         sender = "Authelia <${smtp.user}>";

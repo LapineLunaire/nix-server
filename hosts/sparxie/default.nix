@@ -1,15 +1,11 @@
-{
-  outputs,
-  pkgs,
-  ...
-}: let
+{pkgs, ...}: let
   wan = import ./wan-net.nix;
 in {
   imports = [
-    outputs.nixosModules.host-base
-    # sshd accepts connections only from the external addresses in the whitelist secrets. A stale whitelist is recovered through the Hetzner console.
-    outputs.nixosModules.ssh-ip-whitelist
-    outputs.nixosModules.zfs
+    ../../modules/nixos/host-base
+    # Recover a stale SSH allowlist through the Hetzner console.
+    ../../modules/nixos/ssh-ip-whitelist.nix
+    ../../modules/nixos/zfs.nix
     ./hardware-configuration.nix
     ./sops.nix
     ./services
@@ -23,11 +19,10 @@ in {
 
   host.flakePath = "/persist/nix-config";
 
-  # ACME account email and the sops secret holding the Cloudflare DNS-01 token, read by modules/nixos/caddy.nix.
   host.acmeEmail = "certs@lunaire.eu";
   host.dnsApiTokenSecret = "bunny-enterprises-dns-api-token";
 
-  # The WireGuard tunnel to sparkle, a /31 point-to-point pair. sparxie listens on its static VPS address and sparkle dials in, so listenPort is set here and endpoint is not.
+  # Sparxie listens; the proxy guest connects to it.
   host.wireguardTunnel = {
     prefixLength = "31";
     listenPort = wan.wireguardPort;
@@ -38,8 +33,7 @@ in {
     };
   };
 
-  # Static network config per Hetzner VPS requirements (https://docs.hetzner.com/cloud/servers/static-configuration/).
-  # The IPv4 gateway is off-subnet relative to the /32 address, so the route needs GatewayOnLink. The IPv6 default gateway is the router's link-local address.
+  # Hetzner's IPv4 gateway is outside the /32, so it needs GatewayOnLink.
   systemd.network.networks."30-wan" = {
     matchConfig.Name = "enp1s0";
     networkConfig.DHCP = "no";
@@ -58,7 +52,7 @@ in {
 
   boot = {
     kernelPackages = pkgs.linuxPackages_6_18;
-    # Explicit zfs major version pin, upgraded deliberately in lockstep with the kernel pin above.
+    # Update ZFS and the kernel together.
     zfs.package = pkgs.zfs_2_4;
   };
 

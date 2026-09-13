@@ -1,6 +1,5 @@
-# The tuwunel Matrix homeserver, bound to loopback behind Caddy, with its registration token injected from sops.
 {config, ...}: {
-  # Registration is open but token-gated. The token is injected via an env var so it doesn't appear in the world-readable tuwunel config file.
+  # Keep the registration token out of the Nix store.
   sops.templates."tuwunel.env".content = ''
     TUWUNEL_REGISTRATION_TOKEN=${config.sops.placeholder."tuwunel-registration-token"}
   '';

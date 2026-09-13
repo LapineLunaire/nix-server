@@ -15,39 +15,50 @@
   boot.kernelModules = ["kvm-intel"];
   boot.extraModulePackages = [];
 
-  fileSystems."/" = {
-    device = "none";
-    fsType = "tmpfs";
-    options = [
-      "defaults"
-      "size=2G"
-      "mode=755"
-    ];
-  };
+  fileSystems = let
+    temporary = {
+      device = "none";
+      fsType = "tmpfs";
+      options = ["defaults" "size=4G" "mode=1777" "nosuid" "nodev" "noexec"];
+    };
+  in {
+    "/" = {
+      device = "none";
+      fsType = "tmpfs";
+      options = [
+        "defaults"
+        "size=2G"
+        "mode=755"
+      ];
+    };
 
-  fileSystems."/nix" = {
-    device = "sparkle/nix";
-    fsType = "zfs";
-    options = ["zfsutil"];
-  };
+    "/nix" = {
+      device = "sparkle/nix";
+      fsType = "zfs";
+      options = ["zfsutil"];
+    };
 
-  fileSystems."/persist" = {
-    device = "sparkle/persist";
-    fsType = "zfs";
-    options = ["zfsutil"];
-    neededForBoot = true;
-  };
+    "/persist" = {
+      device = "sparkle/persist";
+      fsType = "zfs";
+      options = ["zfsutil"];
+      neededForBoot = true;
+    };
 
-  fileSystems."/home" = {
-    device = "sparkle/home";
-    fsType = "zfs";
-    options = ["zfsutil"];
-  };
+    "/home" = {
+      device = "sparkle/home";
+      fsType = "zfs";
+      options = ["zfsutil"];
+    };
 
-  fileSystems."/boot" = {
-    device = "/dev/disk/by-uuid/B8BB-F5FD";
-    fsType = "vfat";
-    options = ["umask=0077"];
+    "/boot" = {
+      device = "/dev/disk/by-uuid/B8BB-F5FD";
+      fsType = "vfat";
+      options = ["umask=0077"];
+    };
+
+    "/tmp" = temporary;
+    "/var/tmp" = temporary;
   };
 
   swapDevices = [];

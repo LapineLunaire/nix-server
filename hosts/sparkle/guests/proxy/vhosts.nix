@@ -1,4 +1,3 @@
-# The guests' Caddy vhosts: one per proxied guest plus the misc file server, each behind a source-IP allowlist and its own Caddy-issued certificate, and the plain-HTTP file server sparxie reaches over the tunnel.
 {
   config,
   dmz,
@@ -11,16 +10,14 @@
   services.caddy.virtualHosts = let
     inherit (config.caddy) securityHeaders tlsDns;
     wg = config.host.wireguardTunnel;
-    # Source-IP base allowlist applied to every vhost: the trusted client subnets.
     baseAllow = config.host.trustedSubnets;
 
-    # The misc share browsed over HTTP, served both as a proxied vhost and directly on the tunnel address below. Read-only NFS from the vault guest.
+    # Serve the same read-only share locally and through the WireGuard tunnel.
     miscFileServer = ''
       root * /srv/misc
       file_server browse
     '';
-    # One vhost per proxied guest, keyed by guest name. The site address and the upstream port come from guest-web.nix, and the dns guest generates a zone CNAME per vhost. extraAllow lists callers beyond baseAllow; body overrides the default reverse proxy to the guest.
-    # uptimeKuma in extraAllow is uptime-kuma probing each service through the proxy.
+    # Additional callers beyond trusted clients. Uptime Kuma probes through the proxy.
     uptimeKuma = net.vmAddress.uptime-kuma;
     vmVhosts = {
       monitoring.extraAllow = [uptimeKuma];
@@ -36,15 +33,14 @@
           }
         '';
       };
-      # forgejo: the DMZ segment for clones from other server hosts, the ci-runner cloning over https, and uptime-kuma.
+      # Allow server clones, CI and health checks.
       forgejo.extraAllow = [dmz.subnet net.vmAddress.ci-runner uptimeKuma];
-      # attic: the DMZ segment, which is sparkle substituting from the cache and the ci-runner pushing to it. baseAllow already carries the trusted client subnets camellya sits in.
+      # Allow cache access from Sparkle and CI; trusted clients already include the desktop.
       attic.extraAllow = [dmz.subnet];
       homeassistant.extraAllow = [uptimeKuma];
       kavita.extraAllow = [uptimeKuma];
       qbittorrent.extraAllow = [uptimeKuma];
     };
-    # Vhosts this guest serves itself, keyed by full site address since they have no upstream behind them.
     hostVhosts = {
       "misc.${web.domain}" = {
         extraAllow = [uptimeKuma];
