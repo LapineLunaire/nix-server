@@ -26,7 +26,7 @@
       # Keep build scratch off the tmpfs root.
       {
         image = "/persist/vms/ci-runner/volumes/nix-build.img";
-        size = 32768;
+        size = 65536;
         mountPoint = "/var/nixbuild";
         fsType = "xfs";
       }
