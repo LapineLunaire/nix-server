@@ -13,6 +13,11 @@
 
   host.trustedSubnets = trustedSubnets.all;
 
+  # Permit Uptime Kuma's SSH availability check as well as trusted Git clients.
+  networking.firewall.extraInputRules = ''
+    ip saddr ${net.vmAddress.uptime-kuma} tcp dport 22 accept
+  '';
+
   host.smtp = {
     host = "smtp.protonmail.ch";
     port = "587";

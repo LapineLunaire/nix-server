@@ -53,7 +53,8 @@ constraints or workarounds. Format Nix with Alejandra.
 ## Host notes
 
 SSH uses keys only; full hosts disable root login. Sparkle restricts SSH to trusted
-client subnets, and Sparxie uses a secret IP allowlist. Escalation uses doas.
+client subnets and Uptime Kuma's availability check; Sparxie uses a secret IP allowlist.
+Escalation uses doas.
 Sparkle uses Secure Boot and an interactive ZFS unlock. The vault guest unlocks
 its separate encrypted pool from SOPS. Keep its recovery passphrase separately.
 Sparxie's disks are unencrypted. Borg backs up snapshots of each host's persist dataset.

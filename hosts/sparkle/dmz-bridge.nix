@@ -106,6 +106,9 @@ in {
         iifname "sfp0" oifname "forgejo" ip saddr { ${trusted} } tcp dport 22 accept
         iifname "sfp0" oifname { ${guests} } ip saddr { ${trusted} } icmp type echo-request accept
 
+        # Uptime Kuma checks Forgejo's Git-over-SSH service.
+        iifname "uptime-kuma" oifname "forgejo" tcp dport 22 accept
+
         # monitoring: scrape node_exporter on every guest.
         iifname "monitoring" oifname { ${guests} } tcp dport ${toString net.nodeExporterPort} accept
 

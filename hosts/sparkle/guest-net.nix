@@ -9,7 +9,8 @@ in {
   # Pin each tap to its assigned IPv4 address.
   guestIdentityNft = builtins.concatStringsSep ", " (map (name: "\"${name}\" . ${vmAddress.${name}}") names);
   postgresClientsNft = let
-    postgresClients = ["authelia" "forgejo" "vaultwarden" "attic" "pgadmin"];
+    # The DB-backed apps, pgadmin, and uptime-kuma for its port check.
+    postgresClients = ["authelia" "forgejo" "vaultwarden" "attic" "pgadmin" "uptime-kuma"];
   in
     builtins.concatStringsSep ", " (map (name: vmAddress.${name}) postgresClients);
   postgresPort = 5432;

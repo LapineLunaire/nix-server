@@ -10,7 +10,7 @@ in {
     ../../modules/nixos/host-base
     ../../modules/nixos/secure-boot.nix
     ../../modules/nixos/zfs.nix
-    # Only trusted client networks may reach the host's SSH service.
+    # Trusted clients reach SSH; telemetry.nix also permits Uptime Kuma's check.
     ../../modules/nixos/trusted-ssh-ingress.nix
     ./binary-cache.nix
     ./hardware-configuration.nix
