@@ -1,6 +1,6 @@
 name: Update
 
-# Refresh digests before updating the lockfile.
+# Refresh the Home Assistant digest before updating the lockfile.
 on:
   schedule:
     - cron: "0 2 * * *"
@@ -15,12 +15,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Update digests
+      - name: Update Home Assistant digest
         id: digests
         env:
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          # Refresh container images weekly, or on a manual run.
+          # Refresh Home Assistant weekly, or on a manual run.
           if [ "$(date +%u)" != "1" ] && [ "$EVENT_NAME" != "workflow_dispatch" ]; then
             echo "not Monday, skipping"
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -54,7 +54,7 @@ jobs:
         with:
           paths: |
             hosts/sparkle/guests/homeassistant/default.nix
-          message: "sparkle: update container image digests"
+          message: "sparkle: update Home Assistant image digest"
           ssh-signing-key: ${{ secrets.CI_SIGNING_KEY }}
           push-token: ${{ github.token }}
 

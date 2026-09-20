@@ -73,7 +73,7 @@ in {
         elements = { ${guestMacsNft} }
       }
 
-      # Reject spoofed sources before bridge conntrack (-200) sees them.
+      # Drop spoofed sources before bridge conntrack (-200) sees them.
       chain antispoof {
         type filter hook prerouting priority -300; policy accept;
 
@@ -87,7 +87,7 @@ in {
         ether type arp iifname . arp saddr ip != @guest-identity goto spoof-drop
       }
 
-      # Log only rejected frames, with a rate limit.
+      # Log only spoofed frames, with a rate limit.
       chain spoof-drop {
         limit rate 10/second log prefix "guest-spoof-drop "
         drop

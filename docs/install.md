@@ -1,8 +1,6 @@
 # Installation
 
-Boot a NixOS installer in UEFI mode and run these commands as root. The examples
-use `/dev/nvme0n1`; substitute the target disk on Sparxie. Partitioning and
-formatting erase that disk. Replace `<hostname>` with `sparkle` or `sparxie`.
+Boot a NixOS installer for the target architecture in UEFI mode, with ZFS support, and run the installation commands as root in Bash. The examples use `/dev/nvme0n1`; substitute the target disk on Sparxie. Partitioning and formatting erase that disk. Replace `<hostname>` with `sparkle` or `sparxie`, and replace all other angle-bracket placeholders before running commands. Use an installer whose ZFS pool features are supported by the target system.
 
 **1. Partition**
 
@@ -17,6 +15,10 @@ mkfs.vfat -F32 /dev/nvme0n1p1
 
 **2. Create the ZFS pool and its datasets**
 
+The command below creates Sparkle's encrypted layout. For Sparxie's intended unencrypted layout, omit `encryption`, `keylocation` and `keyformat` before running it.
+
+For a mirrored data vdev, replace the final device with `mirror /dev/disk/by-id/<disk1>-part2 /dev/disk/by-id/<disk2>-part2`, after partitioning both disks. This only mirrors the ZFS vdev, not the EFI partition.
+
 ```sh
 zpool create -o ashift=12 -o autotrim=on \
   -O atime=off -O acltype=posixacl -O xattr=sa -O dnodesize=auto \
@@ -30,22 +32,20 @@ zfs create <hostname>/persist
 zfs create <hostname>/home
 ```
 
-`services.zfs.autoSnapshot` (modules/nixos/zfs.nix) only snapshots datasets carrying the property, so mark them:
+`services.zfs.autoSnapshot` (`modules/nixos/zfs.nix`) requires dataset opt-in, which can also be inherited. Mark the host's data datasets:
 
 ```sh
 zfs set com.sun:auto-snapshot=true <hostname>/persist <hostname>/home
 ```
 
-The `vault` pool lives on a SAS HBA passed through to the vault guest, which imports it and serves it; it is never mounted on the host. A freshly created dataset is owned `root:root`, so chown each one once from inside that guest to the identity its export or share squashes to: `chown carmilla:users /vault/misc /vault/carmilla`, and `chown -R 3000:3000 /vault/torrents` for the writable export, whose `all_squash,anonuid=3000` would otherwise leave qbittorrent unable to write.
-
-Omit the three encryption options for an unencrypted pool (sparxie's layout), and replace the vdev with `mirror <disk1>-part2 <disk2>-part2` for a mirror. Each host also needs a unique `networking.hostId`; generate one with `head -c4 /dev/urandom | od -An -tx4 | tr -d ' '`.
+Each host also needs a unique `networking.hostId`; generate a candidate with `head -c4 /dev/urandom | od -An -tx4 | tr -d ' '` and check it against the other systems' IDs, including the vault guest's. The separate `vault` pool is handled inside that guest; see step 9.
 
 **3. Mount**
 
 ```sh
 mount -t tmpfs -o size=2G,mode=755 none /mnt
 mkdir -p /mnt/{boot,nix,persist,home}
-mount /dev/nvme0n1p1 /mnt/boot
+mount -o umask=0077 /dev/nvme0n1p1 /mnt/boot
 mount -t zfs -o zfsutil <hostname>/nix /mnt/nix
 mount -t zfs -o zfsutil <hostname>/persist /mnt/persist
 mount -t zfs -o zfsutil <hostname>/home /mnt/home
@@ -84,15 +84,13 @@ nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nix
   -c sops updatekeys hosts/<hostname>/secrets.yaml
 ```
 
-For sparkle, also update `consoleKey` in `flake.nix` to the new SSH public key and update every guest secrets file whose creation rule includes `sparkle_host`. The console key and the age recipient are different encodings of the same host identity. A new recipient cannot decrypt existing ciphertext; if the old identity is unavailable, recreate the secret values and encrypt them for the new recipients before installing. Restoring the original host key does not require re-encryption.
+For sparkle, also update `consoleKey` in `flake.nix` to the new SSH public key and run `sops updatekeys` on every guest secrets file whose creation rule includes `sparkle_host`. The SSH public key and age recipient are derived from the same host key. A new recipient cannot decrypt existing ciphertext until an authorized identity updates its recipients. If no authorized identity remains, recreate the secret values and encrypt them for the new recipients before installing. Restoring the original host key does not require changing recipients.
 
 Restore sparkle's guest state and SSH keys under `/mnt/persist/vms/`. For new guests, provision their keys and secret recipients as described in [guest operations](guests.md) before starting them; services also need their persisted data or first-time initialization. Keep the vault pool passphrase available independently of its encrypted guest secret.
 
-Passwords and tokens embedded in runtime templates must be single-line values.
-Attic and Vaultwarden embed their database passwords in connection URLs, so use
-URL-safe passwords for those roles, for example `openssl rand -hex 32`. When rotating
-a database password, update both the application guest's secret and the matching
-secret in the PostgreSQL guest.
+Use single-line passwords and tokens in runtime SOPS templates, including the environment files and the Authelia and ejabberd YAML snippets. Also respect each consuming application's quoting and value format: Authelia's client secrets are inserted into single-quoted scalars, and ejabberd's passwords into indented block scalars.
+
+Attic and Vaultwarden embed their database passwords in connection URLs, so use URL-safe passwords for those roles, for example `openssl rand -hex 32`. When rotating a database password, update both the application guest's secret and the matching secret in the PostgreSQL guest for roles defined there.
 
 **6. Prepare Secure Boot signing keys before installation (sparkle only)**
 
@@ -111,7 +109,7 @@ nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nix
   -c sbctl --config /tmp/sbctl-install.yaml create-keys
 ```
 
-Skip `create-keys` when restoring keys. The bind mount makes the same persisted keys available at the install target's `/var/lib/sbctl`, where Lanzaboote expects them. See [sbctl's configuration reference](https://github.com/Foxboron/sbctl/blob/master/docs/sbctl.conf.5.txt) for `keydir` and `guid`. sparxie uses systemd-boot and skips this step.
+Skip `create-keys` when restoring keys. The bind mount makes the same persisted keys available at the install target's `/var/lib/sbctl`, where Lanzaboote expects them. See [sbctl 0.18's configuration reference](https://github.com/Foxboron/sbctl/blob/0.18/docs/sbctl.conf.5.txt) for `keydir` and `guid`. Sparxie uses systemd-boot and skips this step.
 
 **7. Install**
 
@@ -120,8 +118,7 @@ nixos-install --no-root-passwd --flake /mnt/persist/nix-config#<hostname>
 chown -R 1000:100 /mnt/persist/nix-config
 ```
 
-Root login stays locked. The checkout belongs to `carmilla:users` (UID 1000, GID 100),
-so the user can edit it and the signed auto-update service can fetch into it.
+Root password login stays locked, and both hosts disable root SSH login. The checkout belongs to `carmilla:users` (UID 1000, GID 100), so the user can edit it and the signed auto-update service can fetch into it.
 
 Before rebooting, leave the checkout, unmount the target, and export the pool cleanly so the next boot does not need a forced import:
 
@@ -131,11 +128,11 @@ umount -R /mnt
 zpool export <hostname>
 ```
 
-For newly generated signing keys, boot sparkle with Secure Boot enforcement disabled until the keys are enrolled. Its ZFS pool still requires the interactive passphrase.
+For newly generated signing keys, boot sparkle with Secure Boot enforcement disabled until the keys are enrolled. The encrypted pool created in step 2 still requires its interactive passphrase.
 
 **8. Enroll and verify Secure Boot (sparkle only)**
 
-For new keys, enter the firmware's Secure Boot Setup Mode, preserving its forbidden-signature database (`dbx`), and boot the installed system. Check the signed boot entries and enroll the keys:
+For new keys, enter the firmware's Secure Boot Setup Mode, preserving its forbidden-signature database (`dbx`), and boot the installed system. Log in as `carmilla`; the commands below use `doas` for elevation. Check the signed boot entries and enroll the keys:
 
 ```sh
 doas sbctl status
@@ -143,4 +140,36 @@ doas sbctl verify
 doas sbctl enroll-keys --microsoft
 ```
 
-If restored keys are already enrolled, skip enrollment. Enable Secure Boot enforcement in firmware and reboot; confirm `bootctl status` reports Secure Boot enabled in user mode. sparkle's ZFS pool continues to use the interactive passphrase.
+If restored keys are already enrolled, skip enrollment. Enable Secure Boot enforcement in firmware and reboot; confirm `bootctl status` reports Secure Boot enabled (user or deployed mode). This does not change the encrypted pool's interactive unlock.
+
+**9. Prepare Vault's separate data pool (sparkle only)**
+
+The configuration passes a SAS HBA to the vault guest. Its `vault` pool is imported and mounted inside the guest, with no host filesystem declaration for it. Restore that pool independently of the host's Borg backup, which does not cover it.
+
+For a new pool, provision its disk layout inside the guest and create the datasets `vault/carmilla`, `vault/misc`, `vault/misc/library` and `vault/torrents`.
+
+The unlock service expects the encryption root `vault`; use a passphrase key matching the `vault-zfs-key` SOPS secret, and retain `keylocation=prompt` for recovery. The service supplies the secret file's location only when loading the key. Use `mountpoint=none` for the pool's root dataset and its children so the configured filesystem mounts manage their paths.
+
+As root inside the vault guest, first check that all four paths below are separate ZFS mounts:
+
+```sh
+findmnt -t zfs
+```
+
+For freshly provisioned datasets, set all four mount-root owners explicitly:
+
+```sh
+chown carmilla:users /vault/carmilla /vault/misc /vault/misc/library
+chown 3000:3000 /vault/torrents
+```
+
+The library dataset mounts at `/vault/misc/library`; changing its parent's owner does not change this mount's owner. NFS squashes the read-only misc and library exports to UID 1000/GID 100, and the writable torrents export to UID/GID 3000. Preserve restored ownership and ACLs; existing torrent content must also permit UID/GID 3000 to write. Samba's writable carmilla share forces `carmilla:users`; provision its Samba password separately when starting fresh.
+
+Vault also enables automatic snapshots. Opt its data datasets in from inside the guest, and inspect the effective properties, including any inherited overrides:
+
+```sh
+zfs set com.sun:auto-snapshot=true vault/carmilla vault/misc vault/misc/library vault/torrents
+zfs get -r all vault | grep 'com.sun:auto-snapshot'
+```
+
+These snapshots stay on the Vault pool. The host Borg jobs do not back up that pool.
