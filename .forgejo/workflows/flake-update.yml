@@ -27,17 +27,13 @@ jobs:
             exit 0
           fi
           set -euo pipefail
-          pgadmin=$(skopeo inspect --format '{{.Digest}}' docker://dpage/pgadmin4:latest)
           ha=$(skopeo inspect --format '{{.Digest}}' docker://ghcr.io/home-assistant/home-assistant:stable)
 
-          for digest in "$pgadmin" "$ha"; do
-            if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
-              echo "Invalid container digest: $digest" >&2
-              exit 1
-            fi
-          done
+          if [[ ! "$ha" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "Invalid container digest: $ha" >&2
+            exit 1
+          fi
 
-          sed -i "s|dpage/pgadmin4@sha256:[a-f0-9]*|dpage/pgadmin4@${pgadmin}|" hosts/sparkle/guests/pgadmin/default.nix
           sed -i "s|home-assistant/home-assistant@sha256:[a-f0-9]*|home-assistant/home-assistant@${ha}|" hosts/sparkle/guests/homeassistant/default.nix
 
           if git diff --quiet; then
@@ -57,7 +53,6 @@ jobs:
         uses: ./.forgejo/actions/commit-push
         with:
           paths: |
-            hosts/sparkle/guests/pgadmin/default.nix
             hosts/sparkle/guests/homeassistant/default.nix
           message: "sparkle: update container image digests"
           ssh-signing-key: ${{ secrets.CI_SIGNING_KEY }}

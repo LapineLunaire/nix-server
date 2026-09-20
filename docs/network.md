@@ -41,10 +41,9 @@ destination grants may reach private addresses. Check the live rules with
 
 | Guest | May open |
 |---|---|
-| postgres, attic | nothing at all |
+| postgres, attic, pgadmin | nothing at all |
 | dns | tcp 853, to 1.1.1.1 and 1.0.0.1 only |
 | authelia | tcp 587 |
-| pgadmin | tcp 443 |
 | proxy | tcp 443; tcp/udp 53; udp to sparxie's WireGuard endpoint |
 | unifi | tcp 80, 443; tcp/udp 53; plus any protocol to the management network |
 | qbittorrent | udp 51820, ICMP. Torrent traffic stays inside the confinement namespace |

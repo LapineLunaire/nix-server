@@ -34,5 +34,4 @@ whiteouts can hide paths in the host store that the next guest generation needs.
 Sparkle stops this guest at noon and recreates its store and Nix database together.
 Attic refills the store on subsequent builds. Volume images are excluded from Borg
 backups; application state under `/persist/vms/` is retained. Sparkle creates image directories with the microVM
-runner's ownership; pgAdmin creates its state directory for the container's UID 5050.
-After restoring state, preserve these numeric owners.
+runner's ownership. After restoring state, preserve its numeric owners.

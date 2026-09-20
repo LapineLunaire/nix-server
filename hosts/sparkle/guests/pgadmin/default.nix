@@ -1,76 +1,53 @@
 {
   config,
+  lib,
   net,
   pkgs,
   web,
   ...
 }: {
-  imports = [../../../../modules/nixos/microvm/docker-common.nix ./sops.nix];
+  imports = [./sops.nix];
 
   microvm = {
     vcpu = 1;
-    mem = 1536;
+    mem = 1024;
     initialBalloonMem = 256;
-    volumes = [
-      {
-        image = "/persist/vms/pgadmin/volumes/docker.img";
-        mountPoint = "/var/lib/docker";
-        size = 5120;
-        fsType = "xfs";
-      }
-    ];
   };
 
-  # Container image pulls.
-  microvmGuest.egress = [
-    {
-      proto = "tcp";
-      ports = [443];
-    }
-  ];
-
-  # The container runs as UID/GID 5050; Docker otherwise creates this bind mount as root.
-  systemd.tmpfiles.rules = ["d /persist/var/lib/pgadmin 0700 5050 5050 -"];
-
-  sops.templates."pgadmin.env" = {
-    restartUnits = ["docker-pgadmin.service"];
-    content = ''
-      PGADMIN_DEFAULT_PASSWORD=${config.sops.placeholder."pgadmin-admin-password"}
-      PGADMIN_OIDC_CLIENT_SECRET=${config.sops.placeholder."pgadmin-oidc-client-secret"}
-    '';
-  };
-
-  virtualisation.oci-containers.containers.pgadmin = {
-    image = "dpage/pgadmin4@sha256:c332c5f6dfba995d9ebc4af261d93506d6876085d712eaaa3defc8dd1a3f26de";
-    autoStart = true;
-    environment = {
-      PGADMIN_DEFAULT_EMAIL = "carmilla@lunaire.eu";
-      PGADMIN_LISTEN_ADDRESS = net.vmAddress.pgadmin;
-      PGADMIN_LISTEN_PORT = toString web.endpoints.pgadmin.port;
+  services.pgadmin = {
+    enable = true;
+    port = web.endpoints.pgadmin.port;
+    initialEmail = "carmilla@lunaire.eu";
+    initialPasswordFile = config.sops.secrets."pgadmin-admin-password".path;
+    settings = {
+      DEFAULT_SERVER = net.vmAddress.pgadmin;
+      AUTHENTICATION_SOURCES = ["oauth2"];
+      OAUTH2_AUTO_CREATE_USER = true;
+      OAUTH2_CONFIG = [
+        {
+          OAUTH2_NAME = "authelia";
+          OAUTH2_DISPLAY_NAME = "Lunaire SSO";
+          OAUTH2_CLIENT_ID = "pgadmin";
+          OAUTH2_SERVER_METADATA_URL = "${web.origin.authelia}/.well-known/openid-configuration";
+          OAUTH2_USERINFO_ENDPOINT = "${web.origin.authelia}/api/oidc/userinfo";
+          OAUTH2_SCOPE = "openid email profile";
+          OAUTH2_USERNAME_CLAIM = "preferred_username";
+        }
+      ];
     };
-    environmentFiles = [config.sops.templates."pgadmin.env".path];
-    volumes = let
-      configFile = pkgs.writeText "pgadmin-config.py" ''
-        import os
-
-        AUTHENTICATION_SOURCES = ['oauth2']
-        OAUTH2_AUTO_CREATE_USER = True
-        OAUTH2_CONFIG = [{
-            'OAUTH2_NAME': 'authelia',
-            'OAUTH2_DISPLAY_NAME': 'Lunaire SSO',
-            'OAUTH2_CLIENT_ID': 'pgadmin',
-            'OAUTH2_CLIENT_SECRET': os.environ['PGADMIN_OIDC_CLIENT_SECRET'],
-            'OAUTH2_SERVER_METADATA_URL': '${web.origin.authelia}/.well-known/openid-configuration',
-            'OAUTH2_USERINFO_ENDPOINT': '${web.origin.authelia}/api/oidc/userinfo',
-            'OAUTH2_SCOPE': 'openid email profile',
-            'OAUTH2_USERNAME_CLAIM': 'preferred_username',
-        }]
-      '';
-    in [
-      "/persist/var/lib/pgadmin:/var/lib/pgadmin"
-      "${configFile}:/pgadmin4/config_local.py:ro"
-    ];
-    # Host networking keeps ingress subject to the guest input firewall.
-    extraOptions = ["--network=host"];
   };
+
+  # Read the secret at runtime; the generated Nix configuration contains no secret value.
+  environment.etc."pgadmin/config_system.py".text = lib.mkAfter ''
+    import os
+    with open(os.path.join(os.environ['CREDENTIALS_DIRECTORY'], 'oidc_client_secret')) as secret:
+        OAUTH2_CONFIG[0]['OAUTH2_CLIENT_SECRET'] = secret.read().strip()
+  '';
+
+  # Match the remote PostgreSQL server for pg_dump/pg_restore on the service PATH.
+  services.postgresql.package = pkgs.postgresql_18;
+
+  systemd.services.pgadmin.serviceConfig.LoadCredential = [
+    "oidc_client_secret:${config.sops.secrets."pgadmin-oidc-client-secret".path}"
+  ];
 }
