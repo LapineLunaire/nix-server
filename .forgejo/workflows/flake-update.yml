@@ -3,7 +3,7 @@ name: Update
 # Refresh the Home Assistant digest before updating the lockfile.
 on:
   schedule:
-    - cron: "0 2 * * *"
+    - cron: "0 0 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -141,7 +141,7 @@ jobs:
           trap 'rm -rf -- "$XDG_CONFIG_HOME"' EXIT
           attic login lunaire https://cache.lunaire.moe/ "$ATTIC_TOKEN"
           unset ATTIC_TOKEN
-          attic push lunaire:server "$STORE_PATH"
+          attic push --ignore-upstream-cache-filter lunaire:server "$STORE_PATH"
 
       - name: Commit and push
         if: steps.check.outputs.changed == 'true'

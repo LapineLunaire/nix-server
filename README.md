@@ -22,7 +22,7 @@ The development shell enables `.githooks/pre-commit`, which checks staged Nix fo
 
 Both hosts check for signed updates daily at 03:00 UTC, with up to 15 minutes of jitter. They verify `origin/main` and hard-reset `/persist/nix-config` to that commit, discarding tracked local edits. Sparxie may reboot when the kernel, kernel modules or initrd change. Sparkle restarts changed running guests after a successful upgrade; boot changes need a manual reboot and, for its encrypted pool, an interactive unlock.
 
-The Forgejo workflow is scheduled daily at 02:00 UTC and also supports manual runs. It refreshes the Home Assistant image digest on Mondays and manual runs. A changed digest triggers evaluation of both hosts and all guests, a build of Sparkle's closure, and a signed commit and push.
+The Forgejo workflow is scheduled daily at 00:00 UTC and also supports manual runs. It refreshes the Home Assistant image digest on Mondays and manual runs. A changed digest triggers evaluation of both hosts and all guests, a build of Sparkle's closure, and a signed commit and push.
 
 The subsequent job updates the lockfile; when it changes, the job also checks the Caddy plugin source hash, evaluates and builds, optionally uploads to Attic when a token is configured, then signs and pushes the update. Sparxie's ARM closure is evaluated but not built by this runner.
 

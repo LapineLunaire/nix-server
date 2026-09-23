@@ -106,6 +106,7 @@
       ];
       # Serialize the server and desktop builds on this runner.
       settings.runner.capacity = 1;
+      settings.runner.timeout = "6h";
     };
   };
 }

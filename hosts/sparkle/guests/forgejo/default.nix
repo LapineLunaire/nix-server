@@ -74,6 +74,7 @@
       actions = {
         ENABLED = true;
         DEFAULT_ACTIONS_URL = "github";
+        ENDLESS_TASK_TIMEOUT = "6h";
       };
     };
   };
