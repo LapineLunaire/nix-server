@@ -2,7 +2,6 @@
   wan = import ./wan-net.nix;
 in {
   imports = [
-    ../../modules/nixos/host-base
     # Recover a stale SSH allowlist through the Hetzner console.
     ../../modules/nixos/ssh-ip-whitelist.nix
     ../../modules/nixos/zfs.nix

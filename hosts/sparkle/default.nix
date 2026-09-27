@@ -1,5 +1,4 @@
 {
-  config,
   guestConfigurations,
   pkgs,
   ...
@@ -7,8 +6,6 @@
   dmz = import ./dmz-net.nix;
 in {
   imports = [
-    ../../modules/nixos/host-base
-    ../../modules/nixos/secure-boot.nix
     ../../modules/nixos/zfs.nix
     # Trusted clients reach SSH; telemetry.nix also permits Uptime Kuma's check.
     ../../modules/nixos/trusted-ssh-ingress.nix
@@ -61,20 +58,6 @@ in {
       matchConfig.Name = "ipmi0";
       # The BMC manages its own network configuration.
       linkConfig.Unmanaged = true;
-    };
-  };
-
-  programs.msmtp = let
-    inherit (config.host) smtp;
-  in {
-    enable = true;
-    setSendmail = true;
-    accounts.default = {
-      inherit (smtp) host port user;
-      auth = true;
-      tls = true;
-      from = smtp.user;
-      passwordeval = "cat ${config.sops.secrets."smartd-smtp-password".path}";
     };
   };
 

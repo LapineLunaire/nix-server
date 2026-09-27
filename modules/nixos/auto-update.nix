@@ -6,6 +6,8 @@
 }: let
   inherit (config.host) flakePath;
 in {
+  imports = [../host.nix];
+
   # Trust these keys regardless of the principal Git reports.
   host.autoUpdate.allowedSigners = let
     ciKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPVAUGIq89EoX6Edi6iE8tghHeRqbmUmQJJJXcWfa5Nm";

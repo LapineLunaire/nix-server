@@ -3,6 +3,8 @@
   lib,
   ...
 }: {
+  imports = [../host.nix];
+
   services.openssh.openFirewall = false;
   networking.firewall.extraInputRules = let
     ports = lib.concatMapStringsSep ", " toString config.services.openssh.ports;

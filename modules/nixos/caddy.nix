@@ -4,6 +4,8 @@
   pkgs,
   ...
 }: {
+  imports = [../host.nix];
+
   options.caddy.securityHeaders = lib.mkOption {
     type = lib.types.str;
     readOnly = true;

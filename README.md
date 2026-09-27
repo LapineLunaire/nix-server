@@ -45,6 +45,15 @@ docs/              Installation, guest operations and network access
 
 Use relative imports and keep bindings near their consumers. Share settings with multiple consumers, keep host-specific values with the host, and comment on constraints or workarounds. Format Nix with Alejandra.
 
+The flake's `hostBaseModule`, `secureBootModule`, and `homeManagerModule` bindings compose the full hosts. Exported `nixosModules` and `lib.mk*` helpers include their required Impermanence, Lanzaboote, SOPS, or microVM modules; consumers still supply host values, hardware configuration, and secret files. Modules using `host.*` options import the option declarations themselves. Sparkle's `services/telemetry.nix` keeps SMART monitoring and its mail relay together.
+
+Validate without building or activating any host:
+
+```sh
+alejandra --check .
+nix flake check --all-systems --no-build --no-write-lock-file --option allow-import-from-derivation false
+```
+
 ## Host notes
 
 SSH uses keys only; full hosts disable root SSH login. Sparkle restricts SSH to trusted client subnets and Uptime Kuma's availability check; Sparxie uses a secret IP allowlist. Escalation uses doas.

@@ -1,6 +1,8 @@
 {config, ...}: let
   tokenSecret = config.host.dnsApiTokenSecret;
 in {
+  imports = [../host.nix];
+
   sops.secrets.${tokenSecret} = {};
   sops.templates."acme-dns-api-token.env" = {
     content = ''

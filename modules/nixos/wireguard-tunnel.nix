@@ -5,6 +5,8 @@
 }: let
   wg = config.host.wireguardTunnel;
 in {
+  imports = [../host.nix];
+
   sops.secrets."wireguard-private-key".restartUnits = ["wg-quick-wg0.service"];
 
   networking.firewall.allowedUDPPorts = lib.optionals (wg.listenPort != null) [wg.listenPort];
