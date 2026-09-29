@@ -13,8 +13,6 @@ in {
     secrets =
       {
         "carmilla-password-hash".neededForUsers = true;
-
-        "smartd-smtp-password" = {};
       }
       // lib.genAttrs (map (name: "network/${name}-mac") interfaces) (_: {});
 

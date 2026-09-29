@@ -28,6 +28,7 @@ in {
     host = "smtp.protonmail.ch";
     port = "587";
     user = "noreply@lunaire.eu";
+    passwordSecret = "smartd-smtp-password";
   };
 
   host.flakePath = "/persist/nix-config";

@@ -173,9 +173,14 @@
       acme = {
         imports = [sops-nix.nixosModules.sops ./modules/nixos/acme.nix];
       };
-      auto-update = ./modules/nixos/auto-update.nix;
+      auto-update = {
+        imports = [sops-nix.nixosModules.sops ./modules/nixos/auto-update.nix];
+      };
       caddy = {
         imports = [sops-nix.nixosModules.sops ./modules/nixos/caddy.nix];
+      };
+      mail-relay = {
+        imports = [sops-nix.nixosModules.sops ./modules/nixos/mail-relay.nix];
       };
       microvm-docker-common = ./modules/nixos/microvm/docker-common.nix;
       postgresql-passwords = ./modules/nixos/postgresql-passwords.nix;

@@ -6,7 +6,10 @@
 }: let
   inherit (config.host) flakePath;
 in {
-  imports = [../host.nix];
+  imports = [
+    ../host.nix
+    ./mail-relay.nix
+  ];
 
   # Trust these keys regardless of the principal Git reports.
   host.autoUpdate.allowedSigners = let
@@ -53,6 +56,18 @@ in {
     lib.mkBefore ''
       rev=$(${verifyOriginBranch})
     '';
+
+  # Mail the upgrade log on failure.
+  systemd.services.nixos-upgrade.onFailure = ["nixos-upgrade-failed.service"];
+  systemd.services.nixos-upgrade-failed = {
+    serviceConfig.Type = "oneshot";
+    script = ''
+      {
+        printf 'Subject: ${config.networking.hostName}: nixos-upgrade failed\n\n'
+        ${config.systemd.package}/bin/journalctl -u nixos-upgrade -n 50 --no-pager
+      } | ${config.programs.msmtp.package}/bin/sendmail carmilla@lunaire.eu
+    '';
+  };
 
   # Mark the user-owned checkout as safe for root's Git invocation.
   environment.etc."gitconfig".text = ''

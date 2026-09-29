@@ -18,6 +18,13 @@ in {
 
   host.flakePath = "/persist/nix-config";
 
+  host.smtp = {
+    host = "smtp.protonmail.ch";
+    port = "587";
+    user = "noreply@lunaire.eu";
+    passwordSecret = "smtp-password";
+  };
+
   host.acmeEmail = "certs@lunaire.eu";
   host.dnsApiTokenSecret = "bunny-enterprises-dns-api-token";
 

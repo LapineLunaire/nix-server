@@ -6,23 +6,11 @@
   dmz = import ../dmz-net.nix;
   net = import ../guest-net.nix;
 in {
-  programs.msmtp = let
-    inherit (config.host) smtp;
-  in {
-    enable = true;
-    setSendmail = true;
-    accounts.default = {
-      inherit (smtp) host port user;
-      auth = true;
-      tls = true;
-      from = smtp.user;
-      passwordeval = "cat ${config.sops.secrets."smartd-smtp-password".path}";
-    };
-  };
+  imports = [../../../modules/nixos/mail-relay.nix];
 
   services.smartd = {
     enable = true;
-    # Alerts leave through the host's msmtp relay above.
+    # Alerts leave through the mail relay's sendmail.
     notifications.mail = {
       enable = true;
       sender = config.host.smtp.user;

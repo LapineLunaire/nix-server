@@ -20,7 +20,7 @@ nh os switch .
 
 The development shell enables `.githooks/pre-commit`, which checks staged Nix formatting when Alejandra is available. User profiles prefer uutils; system packages and guests retain GNU utilities. On a host, the `sops` shell alias derives the age identity from its SSH host key.
 
-Both hosts check for signed updates daily at 03:00 UTC, with up to 15 minutes of jitter. They verify `origin/main` and hard-reset `/persist/nix-config` to that commit, discarding tracked local edits. Sparxie may reboot when the kernel, kernel modules or initrd change. Sparkle restarts changed running guests after a successful upgrade; boot changes need a manual reboot and, for its encrypted pool, an interactive unlock.
+Both hosts check for signed updates daily at 03:00 UTC, with up to 15 minutes of jitter. They verify `origin/main` and hard-reset `/persist/nix-config` to that commit, discarding tracked local edits. Sparxie may reboot when the kernel, kernel modules or initrd change. Sparkle restarts changed running guests after a successful upgrade; boot changes need a manual reboot and, for its encrypted pool, an interactive unlock. When an upgrade fails, the host mails the last 50 lines of its log.
 
 The Forgejo workflow is scheduled daily at 00:00 UTC and also supports manual runs. It refreshes the Home Assistant image digest on Mondays and manual runs. A changed digest triggers evaluation of both hosts and all guests, a build of Sparkle's closure, and a signed commit and push.
 
@@ -45,7 +45,7 @@ docs/              Installation, guest operations and network access
 
 Use relative imports and keep bindings near their consumers. Share settings with multiple consumers, keep host-specific values with the host, and comment on constraints or workarounds. Format Nix with Alejandra.
 
-The flake's `hostBaseModule`, `secureBootModule`, and `homeManagerModule` bindings compose the full hosts. Exported `nixosModules` and `lib.mk*` helpers include their required Impermanence, Lanzaboote, SOPS, or microVM modules; consumers still supply host values, hardware configuration, and secret files. Modules using `host.*` options import the option declarations themselves. Sparkle's `services/telemetry.nix` keeps SMART monitoring and its mail relay together.
+The flake's `hostBaseModule`, `secureBootModule`, and `homeManagerModule` bindings compose the full hosts. Exported `nixosModules` and `lib.mk*` helpers include their required Impermanence, Lanzaboote, SOPS, or microVM modules; consumers still supply host values, hardware configuration, and secret files. Modules using `host.*` options import the option declarations themselves. `modules/nixos/mail-relay.nix` provides the msmtp relay that the upgrade alert and Sparkle's SMART monitoring use.
 
 Validate without building or activating any host:
 

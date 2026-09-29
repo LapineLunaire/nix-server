@@ -36,6 +36,11 @@
         type = lib.types.str;
         description = "SMTP account name, also used as the sender address.";
       };
+
+      passwordSecret = lib.mkOption {
+        type = lib.types.str;
+        description = "Name of the sops secret holding the SMTP password, read by the mail-relay module.";
+      };
     };
 
     acmeEmail = lib.mkOption {
