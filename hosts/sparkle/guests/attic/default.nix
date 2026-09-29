@@ -32,6 +32,13 @@
       api-endpoint = "${web.origin.attic}/";
       # Remove the module's SQLite URL so ATTIC_SERVER_DATABASE_URL takes effect.
       database = lib.mkForce {};
+      # Larger chunks reduce overhead for new uploads.
+      chunking = {
+        nar-size-threshold = 8 * 1024 * 1024;
+        min-size = 256 * 1024;
+        avg-size = 1024 * 1024;
+        max-size = 4 * 1024 * 1024;
+      };
       # Bound storage growth with retention.
       garbage-collection = {
         interval = "12 hours";
