@@ -9,7 +9,6 @@
     ../../../modules/nixos/wireguard-tunnel.nix
     ./database.nix
     ./ejabberd.nix
-    ./fail2ban.nix
     ./proxy.nix
     ./tuwunel.nix
   ];

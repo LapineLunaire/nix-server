@@ -71,7 +71,7 @@ Sparxie's host firewall allows these public-facing ports. This lists configured 
 | WireGuard | - | 47329 | `hosts/sparxie/wan-net.nix`, `modules/nixos/wireguard-tunnel.nix` |
 | SSH | 22 | - | `modules/nixos/host-base/default.nix`, `modules/nixos/ssh-ip-whitelist.nix` |
 
-SSH is additionally gated by the SOPS-backed IPv4 and IPv6 allowlists, including connections from loopback and the tunnel. These rules drop unlisted sources before the normal host input firewall. ejabberd's HTTP administration listener on TCP 5280 is bound to `127.0.0.1` and is not publicly opened. Sparxie also enables a Fail2ban SSH jail, which can temporarily ban an otherwise allowlisted source.
+SSH is additionally gated by the SOPS-backed IPv4 and IPv6 allowlists, including connections from loopback and the tunnel. These rules drop unlisted sources before the normal host input firewall. ejabberd's HTTP administration listener on TCP 5280 is bound to `127.0.0.1` and is not publicly opened.
 
 `pub.bunny.enterprises` terminates HTTPS at Sparxie's Caddy, requires basic authentication, and reverse-proxies over `wg0` to `http://10.73.212.0:9000` in Sparkle's proxy guest. That listener serves `/srv/misc` with directory browsing; the directory is a read-only NFS mount of Vault's `/vault/misc`. The guest permits TCP 9000 only on `wg0`, and its Caddy listener uses the tunnel address.
 
