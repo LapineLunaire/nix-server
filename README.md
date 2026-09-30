@@ -54,6 +54,8 @@ alejandra --check .
 nix flake check --all-systems --no-build --no-write-lock-file --option allow-import-from-derivation false
 ```
 
+The flake's `checks` expose every host and guest system derivation by architecture. `--all-systems` includes both architectures, and `--no-build` evaluates the derivations without building them, catching option conflicts and failed assertions.
+
 ## Host notes
 
 SSH uses keys only; full hosts disable root SSH login. Sparkle restricts SSH to trusted client subnets and Uptime Kuma's availability check; Sparxie uses a secret IP allowlist. Escalation uses doas.

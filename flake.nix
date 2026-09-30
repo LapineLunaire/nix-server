@@ -189,6 +189,12 @@
 
     packages = forEachSystem (system: import ./pkgs (pkgsFor system));
 
+    # Evaluate every system derivation with flake check, including with --no-build.
+    checks = forEachSystem (system:
+      nixpkgs.lib.mapAttrs (_: host: host.config.system.build.toplevel)
+      (nixpkgs.lib.filterAttrs (_: host: host.pkgs.stdenv.hostPlatform.system == system)
+        self.nixosConfigurations));
+
     nixosConfigurations =
       {
         sparkle = mkHost {
