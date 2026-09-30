@@ -31,7 +31,7 @@ A build may finish after the hosts' update checks; a later push is eligible for 
 ## Layout
 
 ```text
-flake.nix          Inputs, hosts, guests and exported modules
+flake.nix          Inputs, hosts and guests
 hosts/             Hardware, networking, services and secrets
 modules/           Shared NixOS settings and service modules
 users/carmilla/    Account and Home Manager configuration
@@ -45,7 +45,7 @@ docs/              Installation, guest operations and network access
 
 Use relative imports and keep bindings near their consumers. Share settings with multiple consumers, keep host-specific values with the host, and comment on constraints or workarounds. Format Nix with Alejandra.
 
-The flake's `hostBaseModule`, `secureBootModule`, and `homeManagerModule` bindings compose the full hosts. Exported `nixosModules` and `lib.mk*` helpers include their required Impermanence, Lanzaboote, SOPS, or microVM modules; consumers still supply host values, hardware configuration, and secret files. Modules using `host.*` options import the option declarations themselves. `modules/nixos/mail-relay.nix` provides the msmtp relay that the upgrade alert and Sparkle's SMART monitoring use.
+The flake's `hostBaseModule`, `secureBootModule`, and `homeManagerModule` bindings compose the full hosts. Modules using `host.*` options import the option declarations themselves. `modules/nixos/mail-relay.nix` provides the msmtp relay that the upgrade alert and Sparkle's SMART monitoring use.
 
 Validate without building or activating any host:
 

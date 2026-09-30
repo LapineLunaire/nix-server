@@ -164,63 +164,6 @@
         })
       registry;
   in {
-    nixosModules = {
-      host-base = hostBaseModule;
-      secure-boot = secureBootModule;
-      security = ./modules/nixos/security.nix;
-      trusted-ssh-ingress = ./modules/nixos/trusted-ssh-ingress.nix;
-      zfs = ./modules/nixos/zfs.nix;
-      acme = {
-        imports = [sops-nix.nixosModules.sops ./modules/nixos/acme.nix];
-      };
-      auto-update = {
-        imports = [sops-nix.nixosModules.sops ./modules/nixos/auto-update.nix];
-      };
-      caddy = {
-        imports = [sops-nix.nixosModules.sops ./modules/nixos/caddy.nix];
-      };
-      mail-relay = {
-        imports = [sops-nix.nixosModules.sops ./modules/nixos/mail-relay.nix];
-      };
-      microvm-docker-common = ./modules/nixos/microvm/docker-common.nix;
-      postgresql-passwords = ./modules/nixos/postgresql-passwords.nix;
-      ssh-ip-whitelist = {
-        imports = [sops-nix.nixosModules.sops ./modules/nixos/ssh-ip-whitelist.nix];
-      };
-      wireguard-tunnel = {
-        imports = [sops-nix.nixosModules.sops ./modules/nixos/wireguard-tunnel.nix];
-      };
-    };
-
-    lib = {
-      mkBorgBackup = args: {
-        imports = [
-          sops-nix.nixosModules.sops
-          (import ./modules/nixos/borg-backup.nix args)
-        ];
-      };
-      mkMicrovmGuest = args: {
-        imports = [
-          impermanence.nixosModules.impermanence
-          microvm.nixosModules.microvm
-          sops-nix.nixosModules.sops
-          (import ./modules/nixos/microvm/guest.nix args)
-        ];
-      };
-      mkMicrovmIdentity = args: {
-        imports = [
-          microvm.nixosModules.microvm
-          (import ./modules/nixos/microvm/identity.nix args)
-        ];
-      };
-      mkMicrovmHost = args: {
-        imports = [
-          microvm.nixosModules.host
-          (import ./modules/nixos/microvm/host.nix args)
-        ];
-      };
-    };
-
     formatter = forEachSystem (system: nixpkgs.legacyPackages.${system}.alejandra);
 
     devShells = forEachSystem (system: let
