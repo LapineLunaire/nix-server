@@ -24,12 +24,7 @@ in {
 
   host.trustedSubnets = (import ./trusted-subnets.nix).all;
 
-  host.smtp = {
-    host = "smtp.protonmail.ch";
-    port = "587";
-    user = "noreply@lunaire.eu";
-    passwordSecret = "smartd-smtp-password";
-  };
+  host.smtp.passwordSecret = "smartd-smtp-password";
 
   host.flakePath = "/persist/nix-config";
 

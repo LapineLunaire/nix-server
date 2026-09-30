@@ -24,16 +24,19 @@
     smtp = {
       host = lib.mkOption {
         type = lib.types.str;
+        default = "smtp.protonmail.ch";
         description = "SMTP submission host for outgoing service mail.";
       };
 
       port = lib.mkOption {
         type = lib.types.str;
+        default = "587";
         description = "SMTP submission port, a string for config-file interpolation.";
       };
 
       user = lib.mkOption {
         type = lib.types.str;
+        default = "noreply@lunaire.eu";
         description = "SMTP account name, also used as the sender address.";
       };
 

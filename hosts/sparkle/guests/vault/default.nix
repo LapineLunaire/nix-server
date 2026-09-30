@@ -11,12 +11,14 @@
   discoverySourcesNft = builtins.concatStringsSep ", " discoverySources;
 in {
   imports = [
+    ../../../../modules/nixos/mail-relay.nix
     ../../../../modules/nixos/zfs.nix
     ./samba.nix
     ./sops.nix
   ];
 
   host.trustedSubnets = trustedSubnets.all;
+  host.smtp.passwordSecret = "smartd-smtp-password";
 
   microvm = {
     vcpu = 4;
@@ -102,26 +104,12 @@ in {
     enable = true;
     notifications.mail = {
       enable = true;
-      sender = "noreply@lunaire.eu";
+      sender = config.host.smtp.user;
       recipient = "carmilla@lunaire.eu";
     };
   };
   # smartd references smartmontools but does not add smartctl to PATH.
   environment.systemPackages = [pkgs.smartmontools];
-
-  programs.msmtp = {
-    enable = true;
-    setSendmail = true;
-    accounts.default = {
-      host = "smtp.protonmail.ch";
-      port = "587";
-      user = "noreply@lunaire.eu";
-      auth = true;
-      tls = true;
-      from = "noreply@lunaire.eu";
-      passwordeval = "cat ${config.sops.secrets."smartd-smtp-password".path}";
-    };
-  };
 
   # Squash NFS writes to the torrents account.
   users.groups.torrents.gid = 3000;

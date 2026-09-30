@@ -18,12 +18,6 @@
     ip saddr ${net.vmAddress.uptime-kuma} tcp dport 22 accept
   '';
 
-  host.smtp = {
-    host = "smtp.protonmail.ch";
-    port = "587";
-    user = "noreply@lunaire.eu";
-  };
-
   microvm = {
     vcpu = 2;
     mem = 1536;

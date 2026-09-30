@@ -6,12 +6,6 @@
 }: {
   imports = [./sops.nix];
 
-  host.smtp = {
-    host = "smtp.protonmail.ch";
-    port = "587";
-    user = "noreply@lunaire.eu";
-  };
-
   microvm = {
     vcpu = 1;
     mem = 768;

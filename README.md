@@ -45,7 +45,7 @@ docs/              Installation, guest operations and network access
 
 Use relative imports and keep bindings near their consumers. Share settings with multiple consumers, keep host-specific values with the host, and comment on constraints or workarounds. Format Nix with Alejandra.
 
-The flake's `hostBaseModule`, `secureBootModule`, and `homeManagerModule` bindings compose the full hosts. Modules using `host.*` options import the option declarations themselves. `modules/nixos/mail-relay.nix` provides the msmtp relay that the upgrade alert and Sparkle's SMART monitoring use.
+The flake's `hostBaseModule`, `secureBootModule`, and `homeManagerModule` bindings compose the full hosts. Modules using `host.*` options import the option declarations themselves. `host.smtp` defaults to the shared submission account. `modules/nixos/mail-relay.nix` provides the msmtp relay that the upgrade alert and the SMART monitoring on Sparkle and the vault guest use.
 
 Validate without building or activating any host:
 
