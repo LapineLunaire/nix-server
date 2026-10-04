@@ -1,67 +1,66 @@
 # nix-server
 
-Carmilla's NixOS servers. The desktop configuration lives in `nix-desktop`.
+Carmilla's NixOS 26.05 servers. Desktop and macOS configuration lives in `nix-desktop`.
 
 | Host | Platform | Role |
-|------|----------|------|
-| sparkle | x86_64-linux | Home server with 16 microVM guests |
+|---|---|---|
+| sparkle | x86_64-linux | Home server, 16 microVM guests |
 | sparxie | aarch64-linux | Public VPS |
 
-Both hosts use nixos-26.05, a tmpfs root and persistent ZFS datasets. Guest state lives under Sparkle's `/persist/vms/`. SOPS secrets use each system's SSH host key; guest secrets also admit Sparkle's key. The default package set uses the stable pin; Lanzaboote and UniFi also use dependencies from the unstable input.
+## Apply changes
 
-## Usage
-
-From this checkout on either server:
+Both hosts keep their checkout at `/persist/nix-config`. Run from there:
 
 ```sh
-nix develop
 nh os switch .
 ```
 
-The development shell enables `.githooks/pre-commit`, which checks staged Nix formatting when Alejandra is available. User profiles prefer uutils; system packages and guests retain GNU utilities. On a host, the `sops` shell alias derives the age identity from its SSH host key.
+A manual switch does not restart guests. On Sparkle, restart each changed guest with `doas systemctl restart microvm@<name>`.
 
-Both hosts check for signed updates daily at 03:00 UTC, with up to 15 minutes of jitter. They verify `origin/main` and hard-reset `/persist/nix-config` to that commit, discarding tracked local edits. Sparxie may reboot when the kernel, kernel modules or initrd change. Sparkle restarts changed running guests after a successful upgrade; boot changes need a manual reboot and, for its encrypted pool, an interactive unlock. When an upgrade fails, the host mails the last 50 lines of its log.
+On a host, the `sops` shell alias derives the age identity from the SSH host key, so `sops hosts/<hostname>/secrets.yaml` decrypts with that key.
 
-The Forgejo workflow is scheduled daily at 00:00 UTC and also supports manual runs. It refreshes the Home Assistant image digest on Mondays and manual runs. A changed digest triggers evaluation of both hosts and all guests, a build of Sparkle's closure, and a signed commit and push.
-
-The subsequent job updates the lockfile; when it changes, the job also checks the Caddy plugin source hash, evaluates and builds, optionally uploads to Attic when a token is configured, then signs and pushes the update. Sparxie's ARM closure is evaluated but not built by this runner.
-
-A build may finish after the hosts' update checks; a later push is eligible for their next successful check.
-
-## Layout
-
-```text
-flake.nix          Inputs, hosts and guests
-hosts/             Hardware, networking, services and secrets
-modules/           Shared NixOS settings and service modules
-users/carmilla/    Account and Home Manager configuration
-pkgs/              The bunny.enterprises site
-overlays.nix       Local package overlay
-docs/              Installation, guest operations and network access
-.forgejo/          Update workflow and signed commit action
-.githooks/         Staged Nix formatting check
-.sops.yaml         Secret recipient rules
-```
-
-Use relative imports and keep bindings near their consumers. Share settings with multiple consumers, keep host-specific values with the host, and comment on constraints or workarounds. Format Nix with Alejandra.
-
-The flake's `hostBaseModule`, `secureBootModule`, and `homeManagerModule` bindings compose the full hosts. Modules using `host.*` options import the option declarations themselves. `host.smtp` defaults to the shared submission account. `modules/nixos/mail-relay.nix` provides the msmtp relay that the upgrade alert and the SMART monitoring on Sparkle and the vault guest use.
-
-Validate without building or activating any host:
+## Check changes
 
 ```sh
-alejandra --check .
+nix develop
+nix fmt --no-write-lock-file -- --check .
 nix flake check --all-systems --no-build --no-write-lock-file --option allow-import-from-derivation false
 ```
 
-The flake's `checks` expose every host and guest system derivation by architecture. `--all-systems` includes both architectures, and `--no-build` evaluates the derivations without building them, catching option conflicts and failed assertions.
+The development shell enables the `.githooks/pre-commit` hook, which checks staged Nix files with Alejandra. The flake check evaluates both hosts and all guests, including assertions, without building or activating them. It does not test secrets or network access; check those on the host. The [validation workflow](.forgejo/workflows/validate.yml) runs the same two checks on pushes to `main` and on pull requests.
 
-## Host notes
+## Nightly updates
 
-SSH uses keys only; full hosts disable root SSH login. Sparkle restricts SSH to trusted client subnets and Uptime Kuma's availability check; Sparxie uses a secret IP allowlist. Escalation uses doas.
+| UTC | Event |
+|---|---|
+| 23:00 | CI store reset |
+| 23:15 | [Server update workflow](.forgejo/workflows/flake-update.yml) |
+| 01:30 | Host upgrades, with up to 15 minutes of jitter |
+| 02:30 | Desktop update workflow; Sparkle backup |
+| 03:00 | Sparxie backup |
 
-Sparkle is configured for Lanzaboote Secure Boot; firmware key enrollment and enforcement must be checked on the machine. The installation procedure creates an encrypted Sparkle pool with an interactive unlock and an unencrypted Sparxie pool. Encryption properties live on the pools, not in these filesystem declarations. The vault guest loads its separate pool's key from SOPS. Keep its recovery passphrase separately.
+The server workflow refreshes the Home Assistant image digest on Mondays and on manual runs, then updates `flake.lock`. When the lock changes, it refreshes the Caddy plugin hash if needed, evaluates both hosts, builds Sparkle, uploads the closure to the `server` Attic cache, and pushes a signed commit. Sparxie is evaluated but not built. Without `ATTIC_TOKEN` the upload is skipped; with it, an upload failure blocks the push.
 
-Borg backs up snapshots of each host's `persist` dataset, excluding guest `volumes/` directories. It does not back up `/home`, `/nix`, or the vault guest's separate pool.
+Each host upgrade verifies the signature on `origin/main` and runs `git reset --hard` on `/persist/nix-config`, which discards uncommitted changes to tracked files. Sparxie reboots when the kernel, kernel modules, or initrd change. Sparkle restarts changed running guests; boot changes need a manual reboot and the pool passphrase. A failed upgrade mails the last 50 lines of its log. Commits pushed after the upgrade check wait for the next night.
 
-See [installation](docs/install.md), [guest operations](docs/guests.md), and [network access](docs/network.md) for the operational details.
+The reset and upgrade timers do not wait for CI to finish, so they can interrupt long or manual runs.
+
+## Operations
+
+- [Install or recover a host](docs/install.md)
+- [Guest management, CI store and backups](docs/guests.md)
+- [Network access and public endpoints](docs/network.md)
+
+## Source map
+
+| Path | Contents |
+|---|---|
+| `flake.nix` | Inputs, hosts and guests |
+| `hosts/` | Hardware, networking, services and secrets |
+| `modules/` | Shared NixOS settings and service modules |
+| `users/carmilla/` | Account and Home Manager |
+| `pkgs/`, `overlays.nix` | The bunny.enterprises site and its overlay |
+| `.sops.yaml` | Secret recipient rules |
+| `.forgejo/` | Workflows and the signed commit action |
+
+Format Nix with Alejandra. Use relative imports and keep bindings near their consumers. Put imports first and keep related options together. Share settings that have several consumers and keep host-specific values with the host. Comments explain constraints and workarounds. Commit subjects use `scope: description`.

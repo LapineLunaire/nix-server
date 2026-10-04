@@ -1,78 +1,84 @@
 # Network access
 
-This describes the configured allowances. Router policy, public DNS and the current state of services must be checked separately when diagnosing reachability.
+This page lists configured access only. Check router policy, public DNS, and live services separately.
 
-## Sparkle
+## Sparkle endpoints
 
-Sparkle bridges sfp0 and the guest taps on dmz0. Its bridge firewall drops unlisted forwarded traffic and checks each guest's source MAC, IPv4 source and ARP sender address before conntrack. It permits ARP after these checks and established or related traffic; the tables below describe allowances for new IPv4 flows. Traffic to Sparkle itself passes through the host input firewall instead.
+Sparkle is `10.28.33.1` and each guest is `10.28.33.<registry index>`. The DMZ is `10.28.32.0/23` with gateway `10.28.32.1`. Trusted clients are `10.28.64.0/24`, `10.28.96.0/24`, `10.100.0.0/24`, and `10.1.0.0/24`; management is `10.28.16.0/24`.
 
-`hosts/sparkle/dmz-bridge.nix` and each guest's input rules define the policy. Guest egress with no explicit destination excludes `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10` and `169.254.0.0/16`. Explicit destination grants may reach those ranges.
+Internal DNS serves the direct-access names: UniFi at `https://unifi.lunaire.moe` (`10.28.33.26`), SMB at `//vault.lunaire.moe` (`10.28.33.17`), and Git SSH at `git-ssh.lunaire.moe` (`10.28.33.20`). The DNS server is `10.28.33.10`.
 
-Check the live rules as root with `nft list table bridge dmz` when changing access. The tables name services; the Nix rules and shared port definitions give their exact ports.
+These HTTPS names use `.lunaire.moe` and admit trusted clients plus the listed callers. A listed guest also needs a bridge rule to reach proxy; see the guest source table.
 
-**In from client networks**, arriving on `sfp0`. Routed clients need access through their router as well. "Trusted" is the four networks in `trusted-subnets.nix`: `10.28.64.0/24`, `10.28.96.0/24`, `10.100.0.0/24` and `10.1.0.0/24`.
-
-| Source | Reaches | Service or traffic |
+| Name | Backend | Additional callers |
 |---|---|---|
-| Trusted | sparkle | SSH |
-| Trusted | proxy | HTTP and HTTPS. Each vhost then re-checks the source itself |
-| Trusted | forgejo | Git over SSH |
-| Trusted | vault | SMB |
-| Trusted | unifi | HTTPS UI, no reverse proxy |
-| Trusted | every guest | ICMP echo |
-| LAN and the router only | vault | NetBIOS discovery and WSD metadata |
-| Any source arriving on sfp0 | vault | mDNS to 224.0.0.251; WSD discovery to 239.255.255.250 |
-| The DMZ segment | proxy | HTTP and HTTPS |
-| Any source arriving on sfp0 | dns | DNS over TCP and UDP |
-| The management network | unifi | Controller adoption, management and device services |
+| `auth` | authelia:9091 | forgejo, pgadmin, uptime-kuma |
+| `git` | forgejo:3000 | DMZ, ci-runner, uptime-kuma |
+| `cache` | attic:8080 | DMZ |
+| `pga` | pgadmin:5000 | uptime-kuma |
+| `up` | uptime-kuma:3001 | - |
+| `vw` | vaultwarden:8222 | uptime-kuma |
+| `kv` | kavita:5000 | uptime-kuma |
+| `qbt` | qbittorrent:4000 | uptime-kuma |
+| `ha` | homeassistant:8123 | uptime-kuma |
+| `gf` | monitoring:3000 | uptime-kuma |
+| `misc` | proxy's read-only `/srv/misc` file server | uptime-kuma |
 
-**From guests to local services**
+## Sparkle firewall
 
-| Source | Reaches | Service or traffic |
+`sfp0` and the guest taps join `dmz0`. The bridge drops unlisted forwarding, validates guest MAC, IPv4, and ARP source addresses before conntrack, and allows valid ARP and established or related traffic. Traffic to Sparkle itself uses the host input firewall. Inspect the bridge rules with `doas nft list table bridge dmz`.
+
+| Client source | Destination | New flows allowed |
 |---|---|---|
-| proxy | each proxied guest | Web backend defined in `guest-web.nix` |
+| Trusted | sparkle, forgejo | SSH |
+| Trusted and DMZ | proxy | HTTP and HTTPS; vhost allowlists also apply |
+| Trusted | vault | SMB TCP 139 and 445 |
+| Trusted | unifi | HTTPS UI TCP 443 |
+| Trusted | All guests | ICMP echo |
+| LAN and gateway | vault | NetBIOS UDP 137 and 138; WSD TCP 5357 |
+| Any via sfp0 | vault | mDNS to 224.0.0.251; WSD to 239.255.255.250 |
+| Any via sfp0 | dns | TCP/UDP 53 |
+| Management | unifi | TCP 8080, 8443, 6789, 8880, 8843; UDP 3478, 10001 |
+
+| Guest source | Local destination | New flows allowed |
+|---|---|---|
+| proxy | Web backends in the HTTPS table | Listed backend ports |
 | uptime-kuma, forgejo, pgadmin, ci-runner | proxy | HTTPS |
-| uptime-kuma | unifi | HTTPS UI |
-| uptime-kuma | sparkle, forgejo | SSH availability checks |
-| monitoring | every guest, and sparkle | Node exporter metrics |
-| attic, authelia, forgejo, vaultwarden, pgadmin, uptime-kuma | postgres | PostgreSQL port; Uptime Kuma has network access for availability checks, but no configured database role |
-| proxy, kavita, qbittorrent | vault | NFSv4 |
-| every guest | dns | DNS over TCP and UDP |
+| uptime-kuma | unifi | HTTPS |
+| uptime-kuma | sparkle, forgejo | SSH checks |
+| monitoring | sparkle and all guests | Node exporter TCP 9100 |
+| attic, authelia, forgejo, vaultwarden, pgadmin, uptime-kuma | postgres | TCP 5432; uptime-kuma has no database role |
+| proxy, kavita, qbittorrent | vault | NFSv4 TCP 2049 |
+| All guests | dns | TCP/UDP 53 |
 
-**Out off the segment**, from `microvmGuest.egress`, plus the bridge's explicit UniFi management-network grant. Unscoped flows exclude the five ranges above. "ICMP echo" means outgoing echo requests; it does not grant arbitrary ICMP types.
+Egress rules without a destination exclude `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, and `169.254.0.0/16`; rules with an explicit destination can reach those ranges. ICMP grants allow echo requests only.
 
-| Guest | May open |
+| Guest | Off-segment egress |
 |---|---|
-| postgres, attic, pgadmin | No new off-segment flows; local allowances above still apply |
-| dns | DNS over TLS, to 1.1.1.1 and 1.0.0.1 only |
+| postgres, attic, pgadmin | None |
+| dns | DNS-over-TLS to 1.1.1.1 and 1.0.0.1 |
 | authelia | SMTP submission |
-| proxy | HTTPS; DNS over TCP and UDP; WireGuard to sparxie |
-| unifi | HTTP and HTTPS; DNS over TCP and UDP; plus any protocol to the management network |
-| qbittorrent | UDP 51820 for WireGuard; ICMP echo. qBittorrent runs in the `qbtvpn` network namespace |
-| uptime-kuma | Any TCP/UDP port, ICMP echo; also ICMP echo to 10.69.69.69 |
-| vault | SMTP submission; the mDNS/WSD groups; WSD discovery replies to the LAN and the router |
-| ci-runner, forgejo, homeassistant, kavita, monitoring, vaultwarden | Any TCP/UDP port, ICMP echo |
+| proxy | HTTPS; TCP/UDP DNS; WireGuard to Sparxie |
+| unifi | HTTP and HTTPS; DNS; any protocol to management |
+| qbittorrent | UDP 51820; ICMP echo; the application runs in `qbtvpn` |
+| uptime-kuma | Any TCP/UDP; ICMP echo, including 10.69.69.69 |
+| vault | SMTP submission; mDNS and WSD groups; WSD replies to the LAN and gateway |
+| ci-runner, forgejo, homeassistant, kavita, monitoring, vaultwarden | Any TCP/UDP; ICMP echo |
 
-The bridge filters proxy-to-backend traffic. Ordinary guest listeners also use the guest input firewall; qBittorrent's Web UI is forwarded into its VPN namespace, with the bridge restricting access to the proxy guest.
+The rules come from `hosts/sparkle/dmz-bridge.nix`, the guest input firewalls, and `microvmGuest.egress`. The bridge also controls UniFi's DNAT-published container ports and qBittorrent's namespace-forwarded UI.
 
-UniFi publishes container ports through DNAT, so the host bridge enforces its ingress policy.
+## Sparxie and public tunnel
 
-Vault's mDNS and multicast WSD allowances match multicast destinations in both firewalls; its separate NetBIOS, WSD metadata and WSD reply rules permit the listed unicast traffic.
+| Service | TCP | UDP |
+|---|---|---|
+| Caddy HTTP and HTTPS | 80, 443 | - |
+| Matrix federation | 8448 | - |
+| ejabberd XMPP, uploads, file transfers, and TURN | 5222, 5223, 5269, 5443, 7777 | 3478, 49152-49500 |
+| WireGuard | - | 47329 |
+| SSH | 22 | - |
 
-## Sparxie and the inbound tunnel
+SSH also requires a source address in the SOPS IPv4 or IPv6 allowlist, including from loopback and tunnel addresses. Recover a stale allowlist through the Hetzner console. The ejabberd admin interface listens on loopback; from an allowlisted address, run `ssh -N -L 5280:127.0.0.1:5280 carmilla@46.225.108.230` and open `http://127.0.0.1:5280/admin/`.
 
-Sparxie's host firewall allows these public-facing ports. This lists configured port allowances, not a live socket inventory; TURN relay sockets are allocated as needed.
+Sparxie serves `pub.bunny.enterprises` over HTTPS with basic auth and proxies it over `wg0` to proxy at `10.73.212.0:9000`, which serves the vault guest's read-only `/vault/misc` NFS export. The proxy firewall allows port 9000 only on `wg0`.
 
-| Service | TCP | UDP | Configuration |
-|---|---|---|---|
-| ejabberd: XMPP, HTTPS uploads, SOCKS5 transfers and STUN/TURN | 5222, 5223, 5269, 5443, 7777 | 3478, 49152-49500 | `hosts/sparxie/services/ejabberd.nix` |
-| Matrix federation through Caddy | 8448 | - | `hosts/sparxie/services/proxy.nix` |
-| Caddy HTTP and HTTPS | 80, 443 | - | `modules/nixos/caddy.nix` |
-| WireGuard | - | 47329 | `hosts/sparxie/wan-net.nix`, `modules/nixos/wireguard-tunnel.nix` |
-| SSH | 22 | - | `modules/nixos/host-base/default.nix`, `modules/nixos/ssh-ip-whitelist.nix` |
-
-SSH is additionally gated by the SOPS-backed IPv4 and IPv6 allowlists, including connections from loopback and the tunnel. These rules drop unlisted sources before the normal host input firewall. ejabberd's HTTP administration listener on TCP 5280 is bound to `127.0.0.1` and is not publicly opened.
-
-`pub.bunny.enterprises` terminates HTTPS at Sparxie's Caddy, requires basic authentication, and reverse-proxies over `wg0` to `http://10.73.212.0:9000` in Sparkle's proxy guest. That listener serves `/srv/misc` with directory browsing; the directory is a read-only NFS mount of Vault's `/vault/misc`. The guest permits TCP 9000 only on `wg0`, and its Caddy listener uses the tunnel address.
-
-The proxy guest initiates WireGuard to Sparxie at `46.225.108.230:47329`, with a 25-second persistent keepalive. Sparxie's tunnel address is `10.73.212.1`; each peer allows only the other peer's `/32`. The bridge admits returning tunnel packets through its established-connection rule. The public file-server request travels inside that tunnel; it is not a public TCP 9000 opening on Sparkle's bridge.
+The proxy guest initiates WireGuard to `46.225.108.230:47329` with a 25-second keepalive. Sparxie is `10.73.212.1`, and each peer allows the other's `/32`. Requests to port 9000 travel inside the tunnel, so the bridge sees only the WireGuard UDP flow and needs no TCP 9000 rule.

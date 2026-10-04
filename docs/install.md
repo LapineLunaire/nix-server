@@ -1,25 +1,17 @@
-# Installation
+# Installation and recovery
 
-Boot a NixOS installer for the target architecture in UEFI mode, with ZFS support, and run the installation commands as root in Bash. The examples use `/dev/nvme0n1`; substitute the target disk on Sparxie. Partitioning and formatting erase that disk. Replace `<hostname>` with `sparkle` or `sparxie`, and replace all other angle-bracket placeholders before running commands. Use an installer whose ZFS pool features are supported by the target system.
+Use a UEFI NixOS installer for the target architecture with compatible ZFS support. Run commands as root in Bash. Replace every `<placeholder>`; the hostname is `sparkle` or `sparxie`. The examples use `/dev/nvme0n1`, so substitute the actual disk. Partitioning and formatting erase it. Forgejo runs on Sparkle, so a Sparkle recovery clones from another checkout, such as the desktop's.
 
-**1. Partition**
+## 1. Partition and create datasets
 
 ```sh
+lsblk
 parted /dev/nvme0n1 -- mklabel gpt
 parted /dev/nvme0n1 -- mkpart ESP fat32 1MiB 1GiB
 parted /dev/nvme0n1 -- set 1 esp on
 parted /dev/nvme0n1 -- mkpart primary 1GiB 100%
-
 mkfs.vfat -F32 /dev/nvme0n1p1
-```
 
-**2. Create the ZFS pool and its datasets**
-
-The command below creates Sparkle's encrypted layout. For Sparxie's intended unencrypted layout, omit `encryption`, `keylocation` and `keyformat` before running it.
-
-For a mirrored data vdev, replace the final device with `mirror /dev/disk/by-id/<disk1>-part2 /dev/disk/by-id/<disk2>-part2`, after partitioning both disks. This only mirrors the ZFS vdev, not the EFI partition.
-
-```sh
 zpool create -o ashift=12 -o autotrim=on \
   -O atime=off -O acltype=posixacl -O xattr=sa -O dnodesize=auto \
   -O normalization=formD -O compression=zstd \
@@ -30,17 +22,14 @@ zpool create -o ashift=12 -o autotrim=on \
 zfs create <hostname>/nix
 zfs create <hostname>/persist
 zfs create <hostname>/home
-```
-
-`services.zfs.autoSnapshot` (`modules/nixos/zfs.nix`) requires dataset opt-in, which can also be inherited. Mark the host's data datasets:
-
-```sh
 zfs set com.sun:auto-snapshot=true <hostname>/persist <hostname>/home
 ```
 
-Each host also needs a unique `networking.hostId`; generate a candidate with `head -c4 /dev/urandom | od -An -tx4 | tr -d ' '` and check it against the other systems' IDs, including the vault guest's. The separate `vault` pool is handled inside that guest; see step 9.
+- Sparxie's pool is unencrypted; omit the `encryption`, `keylocation`, and `keyformat` properties.
+- For a mirror, partition both disks and replace the final device with `mirror /dev/disk/by-id/<disk1>-part2 /dev/disk/by-id/<disk2>-part2`. The EFI partition is not mirrored.
+- `networking.hostId` must differ from every other system's, including the vault guest's. Generate one with `head -c4 /dev/urandom | od -An -tx4 | tr -d ' '`.
 
-**3. Mount**
+## 2. Mount and configure hardware
 
 ```sh
 mount -t tmpfs -o size=2G,mode=755 none /mnt
@@ -49,90 +38,76 @@ mount -o umask=0077 /dev/nvme0n1p1 /mnt/boot
 mount -t zfs -o zfsutil <hostname>/nix /mnt/nix
 mount -t zfs -o zfsutil <hostname>/persist /mnt/persist
 mount -t zfs -o zfsutil <hostname>/home /mnt/home
-```
-
-**4. Clone the repo and update the hardware identifiers**
-
-```sh
 git clone <repo> /mnt/persist/nix-config
 cd /mnt/persist/nix-config
 blkid /dev/nvme0n1p1
 ```
 
-Replace the EFI filesystem UUID in `hosts/<hostname>/hardware-configuration.nix` with the newly generated value. The ZFS dataset names must match the pool created above, and `networking.hostId` in `hosts/<hostname>/default.nix` must be unique. Preserve the tmpfs root, `/persist`'s `neededForBoot`, mount options, and host-specific hardware settings. When replacing hardware, also review the NIC identities and PCI passthrough addresses.
+Update `hosts/<hostname>/hardware-configuration.nix` with the EFI UUID and dataset names, and set the new host ID in `hosts/<hostname>/default.nix`. Keep the tmpfs root, `neededForBoot` on `/persist`, and the mount options. On replacement Sparkle hardware, also update the `network/*-mac` SOPS values that name the NICs, and check the kernel `march`, the guest PCI passthrough addresses, and `max_phys_bits` in the vault and homeassistant guests.
 
-**5. Prepare the SSH host key and secrets**
+## 3. Restore identity and state
 
-Restore the existing host key and its `.pub` file to `/mnt/persist/etc/ssh/` if a backup is available. Otherwise generate a new key:
+Restore the host's SSH key pair to `/mnt/persist/etc/ssh/` and keep the private key root-owned with mode `0600`. With the original key, existing secrets need no changes. To create a new identity instead:
 
 ```sh
 mkdir -p /mnt/persist/etc/ssh
-ssh-keygen -t ed25519 -N "" -f /mnt/persist/etc/ssh/ssh_host_ed25519_key
-```
-
-For a new key, obtain its age recipient using the pinned tool:
-
-```sh
+ssh-keygen -t ed25519 -N '' -f /mnt/persist/etc/ssh/ssh_host_ed25519_key
 nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nixpkgs#ssh-to-age \
   -c ssh-to-age < /mnt/persist/etc/ssh/ssh_host_ed25519_key.pub
 ```
 
-Update `<hostname>_host` in `.sops.yaml`, then update the host secrets with an existing authorized decryption identity available to SOPS:
+Update `<hostname>_host` in `.sops.yaml`, then re-encrypt the secrets for the new key. sops needs the private key of an existing recipient, and root in the installer has none, so pass it explicitly:
 
 ```sh
-nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nixpkgs#sops \
-  -c sops updatekeys hosts/<hostname>/secrets.yaml
+SOPS_AGE_SSH_PRIVATE_KEY_FILE=<old-private-key> \
+  nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nixpkgs#sops \
+  -c sops updatekeys -y hosts/<hostname>/secrets.yaml
 ```
 
-For sparkle, also update `consoleKey` in `flake.nix` to the new SSH public key and run `sops updatekeys` on every guest secrets file whose creation rule includes `sparkle_host`. The SSH public key and age recipient are derived from the same host key. A new recipient cannot decrypt existing ciphertext until an authorized identity updates its recipients. If no authorized identity remains, recreate the secret values and encrypt them for the new recipients before installing. Restoring the original host key does not require changing recipients.
+Only the old host key can re-encrypt the host's file. If it is lost, recreate the secret values. For Sparkle, also set `consoleKey` in `flake.nix` to the new SSH public key and run `sops updatekeys` on every guest secret file whose creation rule includes `sparkle_host`; each guest's own key can decrypt its file.
 
-Restore sparkle's guest state and SSH keys under `/mnt/persist/vms/`. For new guests, provision their keys and secret recipients as described in [guest operations](guests.md) before starting them; services also need their persisted data or first-time initialization. Keep the vault pool passphrase available independently of its encrypted guest secret.
+Restore guest keys and application state under `/mnt/persist/vms/` before the first boot. For a fresh Sparkle installation, create each guest's SSH key as in [guest provisioning](guests.md#add-a-guest), using `/mnt/persist/vms/<name>/etc/ssh/` in the installer. For guests with SOPS files, update their recipients in `.sops.yaml` and re-encrypt their secret files; both the guest and Sparkle must remain recipients.
 
-Use single-line passwords and tokens in runtime SOPS templates, including the environment files and the Authelia and ejabberd YAML snippets. Also respect each consuming application's quoting and value format: Authelia's client secrets are inserted into single-quoted scalars, and ejabberd's passwords into indented block scalars.
+Secret values are single lines. Follow each application's quoting rules, including Authelia's single-quoted YAML and ejabberd's block scalars. The Attic and Vaultwarden database passwords must be URL-safe, for example `openssl rand -hex 32`. Rotate an application's database password and the matching PostgreSQL role secret together.
 
-Attic and Vaultwarden embed their database passwords in connection URLs, so use URL-safe passwords for those roles, for example `openssl rand -hex 32`. When rotating a database password, update both the application guest's secret and the matching secret in the PostgreSQL guest for roles defined there.
+## 4. Prepare Secure Boot keys (Sparkle)
 
-**6. Prepare Secure Boot signing keys before installation (sparkle only)**
+Sparxie uses systemd-boot; skip this section.
 
-Lanzaboote needs signing keys when the installer writes the bootloader. Restore the existing `/var/lib/sbctl` backup into `/mnt/persist/var/lib/sbctl`, or create a new set there:
+Restore `/var/lib/sbctl` into `/mnt/persist/var/lib/sbctl`, or create new keys there before installing. In both cases, bind-mount the persisted `/var/lib` into the target so Lanzaboote finds the keys:
 
 ```sh
 install -d -m 700 /mnt/persist/var/lib/sbctl
 mkdir -p /mnt/var/lib
 mount --bind /mnt/persist/var/lib /mnt/var/lib
+```
 
-cat > /tmp/sbctl-install.yaml <<'EOF'
+For new keys only, create them in the persisted directory. The temporary config sets [sbctl's `keydir` and `guid`](https://github.com/Foxboron/sbctl/blob/0.18/docs/sbctl.conf.5.txt):
+
+```sh
+cat > /tmp/sbctl-install.yaml <<'CONFIG'
 keydir: /mnt/persist/var/lib/sbctl/keys
 guid: /mnt/persist/var/lib/sbctl/GUID
-EOF
+CONFIG
 nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nixpkgs#sbctl \
   -c sbctl --config /tmp/sbctl-install.yaml create-keys
 ```
 
-Skip `create-keys` when restoring keys. The bind mount makes the same persisted keys available at the install target's `/var/lib/sbctl`, where Lanzaboote expects them. See [sbctl 0.18's configuration reference](https://github.com/Foxboron/sbctl/blob/0.18/docs/sbctl.conf.5.txt) for `keydir` and `guid`. Sparxie uses systemd-boot and skips this step.
-
-**7. Install**
+## 5. Install, reboot and enroll
 
 ```sh
 nixos-install --no-root-passwd --flake /mnt/persist/nix-config#<hostname>
 chown -R 1000:100 /mnt/persist/nix-config
-```
-
-Root password login stays locked, and both hosts disable root SSH login. The checkout belongs to `carmilla:users` (UID 1000, GID 100), so the user can edit it and the signed auto-update service can fetch into it.
-
-Before rebooting, leave the checkout, unmount the target, and export the pool cleanly so the next boot does not need a forced import:
-
-```sh
 cd /
 umount -R /mnt
 zpool export <hostname>
 ```
 
-For newly generated signing keys, boot sparkle with Secure Boot enforcement disabled until the keys are enrolled. The encrypted pool created in step 2 still requires its interactive passphrase.
+The checkout belongs to `carmilla:users`. Root has no password and cannot log in over SSH. The host does not force-import its root pool, so export it before rebooting.
 
-**8. Enroll and verify Secure Boot (sparkle only)**
+Commit the hardware, host ID, and SOPS changes, sign them with a key in `host.autoUpdate.allowedSigners`, and push them to `main` before the next upgrade at 01:30 UTC. The upgrade resets the checkout to `origin/main` and would otherwise revert them.
 
-For new keys, enter the firmware's Secure Boot Setup Mode, preserving its forbidden-signature database (`dbx`), and boot the installed system. Log in as `carmilla`; the commands below use `doas` for elevation. Check the signed boot entries and enroll the keys:
+Sparxie needs no key enrollment; run `reboot`. Sparkle asks for the pool passphrase on every boot. For new Sparkle signing keys, disable Secure Boot enforcement, enter firmware Setup Mode while preserving `dbx`, and reboot. If restored keys are already enrolled, skip the enrollment. Otherwise, run as `carmilla`:
 
 ```sh
 doas sbctl status
@@ -140,36 +115,75 @@ doas sbctl verify
 doas sbctl enroll-keys --microsoft
 ```
 
-If restored keys are already enrolled, skip enrollment. Enable Secure Boot enforcement in firmware and reboot; confirm `bootctl status` reports Secure Boot enabled (user or deployed mode). This does not change the encrypted pool's interactive unlock.
+`sbctl verify` lists Lanzaboote's `*-bzImage.efi` files under `EFI/nixos` as unsigned, which is expected. Enable Secure Boot in firmware, reboot, and confirm that `bootctl status` reports Secure Boot as `enabled (user)` or `enabled (deployed)`.
 
-**9. Prepare Vault's separate data pool (sparkle only)**
+## 6. Vault pool (Sparkle)
 
-The configuration passes a SAS HBA to the vault guest. Its `vault` pool is imported and mounted inside the guest, with no host filesystem declaration for it. Restore that pool independently of the host's Borg backup, which does not cover it.
+The vault guest imports its own pool through the passed-through SAS HBA. Host Borg backups do not include it. Create or restore it inside the guest:
 
-For a new pool, provision its disk layout inside the guest and create the datasets `vault/carmilla`, `vault/misc`, `vault/misc/library` and `vault/torrents`.
+- The encryption root is `vault`, with `keylocation=prompt` and the passphrase stored in `vault-zfs-key`. Also keep the passphrase outside SOPS. The unlock service overrides the key location only while it loads the key.
+- The root and all children use `mountpoint=none`; the configured mounts set the paths.
+- The datasets are `vault/carmilla`, `vault/misc`, `vault/misc/library`, and `vault/torrents`.
 
-The unlock service expects the encryption root `vault`; use a passphrase key matching the `vault-zfs-key` SOPS secret, and retain `keylocation=prompt` for recovery. The service supplies the secret file's location only when loading the key. Use `mountpoint=none` for the pool's root dataset and its children so the configured filesystem mounts manage their paths.
-
-As root inside the vault guest, first check that all four paths below are separate ZFS mounts:
+The datasets are `noauto` mounts that NFS and Samba pull in. Load the key, start both services, and check that all four are separate mounts. Set owners only on fresh datasets, and keep restored owners and ACLs:
 
 ```sh
+systemctl restart vault-unlock
+systemctl start nfs-server samba-smbd
 findmnt -t zfs
-```
-
-For freshly provisioned datasets, set all four mount-root owners explicitly:
-
-```sh
 chown carmilla:users /vault/carmilla /vault/misc /vault/misc/library
 chown 3000:3000 /vault/torrents
-```
-
-The library dataset mounts at `/vault/misc/library`; changing its parent's owner does not change this mount's owner. NFS squashes the read-only misc and library exports to UID 1000/GID 100, and the writable torrents export to UID/GID 3000. Preserve restored ownership and ACLs; existing torrent content must also permit UID/GID 3000 to write. Samba's writable carmilla share forces `carmilla:users`; provision its Samba password separately when starting fresh.
-
-Vault also enables automatic snapshots. Opt its data datasets in from inside the guest, and inspect the effective properties, including any inherited overrides:
-
-```sh
 zfs set com.sun:auto-snapshot=true vault/carmilla vault/misc vault/misc/library vault/torrents
-zfs get -r all vault | grep 'com.sun:auto-snapshot'
+zfs get -r com.sun:auto-snapshot vault
 ```
 
-These snapshots stay on the Vault pool. The host Borg jobs do not back up that pool.
+Read-only NFS exports squash to UID 1000 and GID 100. The writable torrents export squashes to 3000:3000, so existing torrent content must be writable by that ID. Samba forces `carmilla:users` on the `carmilla` and `misc` shares; the read-only `torrents` share uses the authenticated user's permissions, so `carmilla` needs read access to the torrent content. For a fresh Samba account, run `smbpasswd -a carmilla` in the vault guest's root console. Snapshots stay on this pool.
+
+## Recovery
+
+1. Get the Borg credentials and any missing SOPS values from the password manager. On a configured host, use the [Borg helper](guests.md#borg-backup-and-recovery). In an installer, pass the credentials to Borg directly as shown in item 3.
+2. If the host pool is intact, skip formatting. Import and unlock it, mount it as in [section 2](#2-mount-and-configure-hardware) without cloning if the checkout survives, then continue with sections 4 and 5:
+
+   ```sh
+   zpool import -N <hostname>
+   zfs load-key <hostname> # Sparkle only
+   ```
+
+   The installer has a different host ID, so the import fails if the original host did not export the pool. Use `zpool import -f -N <hostname>` only after confirming that no other system has it imported.
+
+3. For replacement storage, follow section 1 and the mount commands from section 2, but clone the repository to `/tmp/nix-config` instead of `/mnt/persist/nix-config`. Put the Borg passphrase, SSH private key, and pinned SSH known-hosts entries in root-owned files with mode `0600`, then enter a shell with the checkout's Borg version:
+
+   ```sh
+   nix --extra-experimental-features 'nix-command flakes' shell --inputs-from /tmp/nix-config nixpkgs#borgbackup
+   export BORG_REPO='<repository-url>'
+   export BORG_PASSCOMMAND='cat /run/borg-passphrase'
+   export BORG_RSH='ssh -i /run/borg-ssh-key -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/run/borg-known-hosts'
+   borg list
+   ```
+
+   Adjust the file paths to match the restored credentials. Restore into the mounted `/persist` dataset; `--strip-components 2` removes the archive's `mnt/borg-snapshot/` prefix:
+
+   ```sh
+   cd /mnt/persist
+   borg extract --numeric-ids --strip-components 2 ::<archive> mnt/borg-snapshot
+   cd /mnt/persist/nix-config
+   ```
+
+   The restored checkout contains the old hardware identifiers, so repeat the UUID, dataset, and host ID edits from section 2. No archive contains the CI store image. Archives created before the CI database exclusion still contain `/mnt/persist/vms/ci-runner/nix/var`; delete it before booting. The restored upgrade timer stamp would start a missed upgrade shortly after boot and reset the checkout before the edits are pushed, so delete it too:
+
+   ```sh
+   rm -f /mnt/persist/var/lib/systemd/timers/stamp-nixos-upgrade.timer
+   ```
+
+   Restore `/home` and the vault pool separately, then follow sections 3 to 5.
+
+4. To recover the vault pool alone, import it without mounting and unlock it interactively inside the guest:
+
+   ```sh
+   zpool import -N vault
+   zfs load-key vault
+   systemctl restart vault-unlock
+   systemctl start nfs-server samba-smbd
+   ```
+
+If another machine still has a pool imported, shut it down or export the pool there before importing. Verify guest mounts and application state before resuming use.
