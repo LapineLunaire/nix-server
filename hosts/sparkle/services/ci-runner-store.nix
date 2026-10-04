@@ -5,8 +5,8 @@
 in {
   systemd.services.ci-runner-store-reset = {
     description = "Recreate the ci-runner store volume";
-    # Stop the guest at noon, outside the nightly build schedule. Missed resets wait until tomorrow.
-    startAt = "12:00";
+    # Reset before the nightly update workflows. Missed resets wait until tomorrow.
+    startAt = "23:00";
     path = [pkgs.coreutils pkgs.systemd];
     serviceConfig = {
       Type = "oneshot";

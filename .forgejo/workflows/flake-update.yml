@@ -3,7 +3,7 @@ name: Update
 # Refresh the Home Assistant digest before updating the lockfile.
 on:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "15 23 * * *"
   workflow_dispatch: {}
 
 jobs:
