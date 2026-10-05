@@ -1,6 +1,6 @@
 # Installation and recovery
 
-Use a UEFI NixOS installer for the target architecture with compatible ZFS support. On Sparkle, disable Secure Boot enforcement before booting unsigned installation or recovery media. Run commands as root in Bash. Replace every `<placeholder>`; the hostname is `sparkle` or `sparxie`. The examples use `/dev/nvme0n1`, so substitute the actual disk. Partitioning and formatting erase it. Forgejo runs on Sparkle, so a Sparkle recovery clones from another checkout, such as the desktop's.
+Use a UEFI NixOS installer for the target architecture whose ZFS is not newer than the hosts' ZFS 2.4. On Sparkle, disable Secure Boot enforcement before booting unsigned installation or recovery media. Run commands as root in Bash. Replace every `<placeholder>`; the hostname is `sparkle` or `sparxie`. The examples use `/dev/nvme0n1`, so substitute the actual disk; for `/dev/sda`, the partitions are `/dev/sda1` and `/dev/sda2`. Partitioning and formatting erase it. Forgejo runs on Sparkle, so a Sparkle recovery clones from another checkout, such as a nix-server clone on the desktop.
 
 ## 1. Partition and create datasets
 
@@ -43,7 +43,16 @@ cd /mnt/persist/nix-config
 blkid /dev/nvme0n1p1
 ```
 
-Update `hosts/<hostname>/hardware-configuration.nix` with the EFI UUID and dataset names, and set the new host ID in `hosts/<hostname>/default.nix`. Keep the tmpfs root, `neededForBoot` on `/persist`, and the mount options. On replacement Sparkle hardware, also update the `network/*-mac` SOPS values that name the NICs, and check the kernel `march`, the guest PCI passthrough addresses, and `max_phys_bits` in the vault and homeassistant guests.
+If the clone came from another checkout, point `origin` at Forgejo, because the nightly upgrade fetches from it:
+
+```sh
+git remote set-url origin https://git.lunaire.moe/carmilla/nix-server.git
+git remote set-url --push origin ssh://forgejo@git-ssh.lunaire.moe/carmilla/nix-server.git
+```
+
+Update the EFI UUID in `hosts/<hostname>/hardware-configuration.nix`, and the dataset names only if the pool name differs from the hostname. If you generated a new host ID, set `networking.hostId` in `hosts/<hostname>/default.nix`. Keep the tmpfs root, `neededForBoot` on `/persist`, and the mount options.
+
+On replacement Sparkle hardware, check the kernel `march` in `hosts/sparkle/default.nix`, the guest PCI passthrough addresses, and `max_phys_bits` in the vault and homeassistant guests. After restoring the host key in section 3, update the NIC MAC addresses in the `network/ipmi0-mac`, `network/sfp0-mac`, and `network/sfp1-mac` values of `hosts/sparkle/secrets.yaml`. On a replacement Sparxie VPS, update `hosts/sparxie/wan-net.nix` and the interface name and gateways in `hosts/sparxie/default.nix`.
 
 ## 3. Restore identity and state
 
@@ -64,9 +73,9 @@ SOPS_AGE_KEY_CMD='ssh-to-age -private-key -i <old-private-key>' \
   -c sops updatekeys -y hosts/<hostname>/secrets.yaml
 ```
 
-If the old host key is lost, recreate the host secrets from the password manager. For Sparkle, also set `consoleKey` in `flake.nix` to the new SSH public key. Repeat the command for each guest secret file whose creation rule includes `sparkle_host`, using either the old Sparkle key or that guest's key. If neither key survives, recreate that guest's secrets too.
+For a new Sparkle identity, set `consoleKey` in `flake.nix` to the new SSH public key, and repeat the command for each guest secret file whose creation rule includes `sparkle_host`, using either the old Sparkle key or that guest's key. If the old host key is lost, recreate `hosts/<hostname>/secrets.yaml` from the password manager with every secret that the host's configuration declares. If a guest file has neither key, recreate it too.
 
-Restore guest keys and application state under `/mnt/persist/vms/` before the first boot. For a fresh Sparkle installation, create each guest's SSH key as in [guest provisioning](guests.md#add-a-guest), using `/mnt/persist/vms/<name>/etc/ssh/` in the installer. For guests with SOPS files, update their recipients in `.sops.yaml` and re-encrypt their secret files; both the guest and Sparkle must remain recipients.
+Restore guest keys and application state under `/mnt/persist/vms/` before the first boot. For a fresh Sparkle installation, create each guest's SSH key as in [guest provisioning](guests.md#add-a-guest), using `/mnt/persist/vms/<name>/etc/ssh/` in the installer. For guests with SOPS files, update their `vm_*` recipients in `.sops.yaml` and re-encrypt their secret files; both the guest and Sparkle must remain recipients.
 
 Keep passwords and values inserted into configuration templates on one line. File secrets, such as SSH private keys and WireGuard configurations, keep their required multiline format. Follow each application's quoting rules, including Authelia's single-quoted YAML and ejabberd's block scalars. The Attic and Vaultwarden database passwords must be URL-safe, for example `openssl rand -hex 32`. Rotate an application's database password and the matching PostgreSQL role secret together.
 
@@ -98,17 +107,18 @@ nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nix
 ```sh
 nixos-install --no-root-passwd --flake /mnt/persist/nix-config#<hostname>
 chown -R 1000:100 /mnt/persist/nix-config
-rm -f /mnt/persist/var/lib/systemd/timers/stamp-nixos-upgrade.timer
+rm -f /mnt/persist/var/lib/systemd/timers/stamp-nixos-upgrade.timer \
+  /mnt/persist/var/lib/systemd/timers/stamp-borgbackup-job-hetzner.timer
 cd /
 umount -R /mnt
 zpool export <hostname>
 ```
 
-The checkout belongs to `carmilla:users`. Root password login is locked, and root cannot log in over SSH. The host does not force-import its root pool, so export it before rebooting. Removing the upgrade timer stamp prevents a recovered host from catching up on a missed upgrade immediately after boot; the next scheduled upgrade still runs.
+The checkout belongs to `carmilla:users`. Root password login is locked, and root cannot log in over SSH. The host does not force-import its root pool, so export it before rebooting. Removing the timer stamps prevents a recovered host from catching up on a missed upgrade or backup immediately after boot; the next scheduled runs still happen.
 
-Commit the hardware, host ID, and SOPS changes, sign them with a key in `host.autoUpdate.allowedSigners`, and push them to `main` before the next upgrade at 02:30 UTC. The upgrade resets the checkout to `origin/main` and would otherwise revert them.
+Commit signing is configured only on the desktop. Copy the hardware, host ID, and SOPS changes there, commit them signed with a key in `host.autoUpdate.allowedSigners`, and push them to `main` before the next upgrade at 02:30 UTC. The upgrade resets the checkout to `origin/main` and would otherwise revert them.
 
-Sparxie needs no key enrollment; run `reboot`. Sparkle asks for the pool passphrase on every boot. For new Sparkle signing keys, disable Secure Boot enforcement, enter firmware Setup Mode while preserving `dbx`, and reboot. If restored keys are already enrolled, skip the enrollment. Otherwise, run as `carmilla`:
+Run `reboot`. Sparkle asks for the pool passphrase on every boot. Sparxie needs no key enrollment. If Sparkle's firmware does not have its keys enrolled, as with new keys or new hardware, enter Setup Mode in the firmware during that reboot while preserving `dbx`. After boot, run as `carmilla`:
 
 ```sh
 doas sbctl status
@@ -116,7 +126,7 @@ doas sbctl verify
 doas sbctl enroll-keys --microsoft
 ```
 
-`sbctl verify` lists Lanzaboote's `*-bzImage.efi` files under `EFI/nixos` as unsigned, which is expected. Enable Secure Boot in firmware, reboot, and confirm that `bootctl status` reports Secure Boot as `enabled (user)` or `enabled (deployed)`.
+`sbctl verify` lists Lanzaboote's `kernel-*.efi` files under `EFI/nixos` as unsigned, which is expected. Enable Secure Boot in firmware, reboot, and confirm that `bootctl status` reports Secure Boot as `enabled (user)` or `enabled (deployed)`.
 
 ## 6. Vault pool (Sparkle)
 
@@ -170,11 +180,11 @@ Read-only NFS exports squash to UID 1000 and GID 100. The writable torrents expo
    cd /mnt/persist/nix-config
    ```
 
-   The restored checkout contains the old hardware identifiers, so repeat the UUID, dataset, and host ID edits from section 2. No archive contains the CI store image. Archives created before the CI database exclusion still contain `/mnt/persist/vms/ci-runner/nix/var`; delete it before booting. Section 5 also removes the recovered upgrade timer stamp, so a missed upgrade cannot reset the checkout immediately after boot.
+   The restored checkout contains the old hardware identifiers, so repeat the UUID, dataset, and host ID edits from section 2. No archive contains the CI store image. Archives created before the CI database exclusion still contain the ci-runner Nix database; run `rm -rf /mnt/persist/vms/ci-runner/nix/var` before booting.
 
-   Restore `/home` and the vault pool separately, then follow sections 3 to 5.
+   Follow sections 3 to 5. Borg does not cover `/home`; restore it from another copy if one exists. After Sparkle boots, restore the vault pool as in section 6.
 
-4. To recover the vault pool alone, import it without mounting and unlock it interactively inside the guest:
+4. If the vault guest cannot import or unlock its pool automatically, for example because its SOPS key is lost, import and unlock it from the guest's root console. Skip `zpool import` if `zpool list vault` already shows the pool:
 
    ```sh
    zpool import -N vault

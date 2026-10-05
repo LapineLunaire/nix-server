@@ -26,7 +26,9 @@ These HTTPS names use `.lunaire.moe` and admit trusted clients plus the listed c
 
 ## Sparkle firewall
 
-`sfp0` and the guest taps join `dmz0`. The bridge drops unlisted forwarding, validates guest MAC, IPv4, and ARP source addresses before conntrack, and allows valid ARP and established or related traffic. Traffic to Sparkle itself uses the host input firewall. Inspect the bridge rules with `doas nft list table bridge dmz`.
+`sfp0` and the guest taps join `dmz0`. The bridge drops unlisted forwarding, validates each guest's Ethernet source MAC, IPv4 source, and ARP sender IPv4 before conntrack, and allows valid ARP and established or related traffic. Traffic to Sparkle itself uses the host input firewall. Inspect the bridge rules with `doas nft list table bridge dmz`.
+
+Client rules match traffic arriving on `sfp0`. LAN is `10.28.64.0/24`.
 
 | Client source | Destination | New flows allowed |
 |---|---|---|
@@ -65,7 +67,7 @@ Egress rules without a destination exclude `10.0.0.0/8`, `172.16.0.0/12`, `192.1
 | vault | SMTP submission; mDNS and WSD groups; WSD replies to the LAN and gateway |
 | ci-runner, forgejo, homeassistant, kavita, monitoring, vaultwarden | Any TCP/UDP; ICMP echo |
 
-The rules come from `hosts/sparkle/dmz-bridge.nix`, the guest input firewalls, and `microvmGuest.egress`. The bridge also controls UniFi's DNAT-published container ports and qBittorrent's namespace-forwarded UI.
+The rules come from `hosts/sparkle/dmz-bridge.nix`, the guest input firewalls, and `microvmGuest.egress`. DNAT bypasses the guest input firewall, so the bridge alone filters UniFi's published container ports. The bridge and the `qbtvpn` namespace's `accessibleFrom` both restrict qBittorrent's forwarded UI.
 
 ## Sparxie and public tunnel
 
@@ -77,8 +79,8 @@ The rules come from `hosts/sparkle/dmz-bridge.nix`, the guest input firewalls, a
 | WireGuard | - | 47329 |
 | SSH | 22 | - |
 
-SSH also requires a source address in the SOPS IPv4 or IPv6 allowlist, including from loopback and tunnel addresses. Recover a stale allowlist through the Hetzner console. The ejabberd admin interface listens on loopback; from an allowlisted address, run `ssh -N -L 5280:127.0.0.1:5280 carmilla@46.225.108.230` and open `http://127.0.0.1:5280/admin/`.
+SSH also requires a source address in the SOPS IPv4 or IPv6 allowlist; this applies to loopback and tunnel sources too. Recover a stale allowlist through the Hetzner console. The ejabberd admin interface listens on loopback; from an allowlisted address, run `ssh -N -L 5280:127.0.0.1:5280 carmilla@46.225.108.230` and open `http://127.0.0.1:5280/admin/`.
 
-Sparxie serves `pub.bunny.enterprises` over HTTPS with basic auth and proxies it over `wg0` to proxy at `10.73.212.0:9000`, which serves the vault guest's read-only `/vault/misc` NFS export. The proxy firewall allows port 9000 only on `wg0`.
+Sparxie's Caddy serves `bunny.enterprises`, `chat.bunny.enterprises`, `matrix.bunny.enterprises` (also on TCP 8448), and `pub.bunny.enterprises`; ejabberd serves XMPP for `bunny.enterprises`. `pub.bunny.enterprises` requires basic auth and is reverse-proxied over `wg0` to the proxy guest at `10.73.212.0:9000`, where Caddy serves `/srv/misc`, a read-only NFS mount of the vault guest's `/vault/misc`. The proxy firewall allows port 9000 only on `wg0`.
 
-The proxy guest initiates WireGuard to `46.225.108.230:47329` with a 25-second keepalive. Sparxie is `10.73.212.1`, and each peer allows the other's `/32`. Requests to port 9000 travel inside the tunnel, so the bridge sees only the WireGuard UDP flow and needs no TCP 9000 rule.
+The proxy guest initiates WireGuard to `46.225.108.230:47329` with a 25-second keepalive. Sparxie's tunnel address is `10.73.212.1`, and each peer allows only the other's `/32`. Requests to port 9000 travel inside the tunnel, so the bridge sees only the WireGuard UDP flow and needs no TCP 9000 rule.

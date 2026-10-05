@@ -15,7 +15,7 @@ Both hosts keep their checkout at `/persist/nix-config`. Run from there:
 nh os switch .
 ```
 
-A manual switch does not restart guests. On Sparkle, restart each changed guest with `doas systemctl restart microvm@<name>`.
+A manual switch does not restart guests. Restart each changed guest with `doas systemctl restart microvm@<name>`.
 
 On a host, the `sops` shell alias derives the age identity from the SSH host key, so `sops hosts/<hostname>/secrets.yaml` decrypts with that key.
 
@@ -27,7 +27,7 @@ nix fmt --no-write-lock-file -- --check .
 nix flake check --all-systems --no-build --no-write-lock-file --option allow-import-from-derivation false
 ```
 
-The development shell enables the `.githooks/pre-commit` hook, which checks staged Nix files with Alejandra. The flake check evaluates both hosts and all guests, including assertions, without building or activating them. It does not test secrets or network access; check those on the host. The [validation workflow](.forgejo/workflows/validate.yml) runs the same two checks on pushes to `main` and on pull requests.
+Entering the development shell sets this clone's hook path to `.githooks`. The pre-commit hook checks staged Nix files with Alejandra and skips the check when Alejandra is not on PATH. The flake check evaluates both hosts and all guests, including assertions, without building or activating them. It does not test secrets or network access; check those on the host. The [validation workflow](.forgejo/workflows/validate.yml) runs the same two checks on pushes to `main`, on pull requests, and on manual dispatch.
 
 ## Nightly updates
 
@@ -38,10 +38,11 @@ The development shell enables the `.githooks/pre-commit` hook, which checks stag
 | 02:30 | Host upgrades, with up to 15 minutes of jitter |
 | 03:30 | Desktop update workflow; Sparkle backup |
 | 04:00 | Sparxie backup |
+| 12:00 | Borg freshness check |
 
-The server workflow refreshes the Home Assistant image digest on Mondays and on manual runs, then updates `flake.lock`. When the lock changes, it refreshes the Caddy plugin hash if needed, evaluates both hosts, builds Sparkle, uploads the closure to the `server` Attic cache, and pushes a signed commit. Sparxie is evaluated but not built. Without `ATTIC_TOKEN` the upload is skipped; with it, an upload failure blocks the push.
+On Mondays and manual runs, the `digests` job refreshes the Home Assistant image digest; when it changes, the job evaluates all systems, builds Sparkle, and pushes a signed commit. After it succeeds, the `update` job updates `flake.lock`. When the lock changes, it refreshes the Caddy plugin hash if needed, evaluates all systems, builds Sparkle but not Sparxie, uploads the closure to the `server` Attic cache, and pushes a signed commit. Without `ATTIC_TOKEN`, the job skips the upload; with it, an upload failure blocks the push.
 
-Each host upgrade verifies the signature on `origin/main` and runs `git reset --hard` on `/persist/nix-config`, which discards uncommitted changes to tracked files. Sparxie reboots when the kernel, kernel modules, or initrd change. Sparkle restarts changed running guests; boot changes need a manual reboot and the pool passphrase. A failed upgrade mails the last 50 lines of its log. Commits pushed after the upgrade check wait for the next night.
+Each host upgrade verifies the signature on `origin/main` and runs `git reset --hard` to that commit in `/persist/nix-config`. This discards uncommitted changes to tracked files and unpushed commits on the checked-out branch. Commit signing is configured only on the desktop, so commit and push from there. Sparxie reboots when the kernel, kernel modules, or initrd change. Sparkle restarts changed running guests; boot changes need a manual reboot and the pool passphrase. A failed upgrade mails the last 50 lines of its log. Commits pushed after the upgrade check wait for the next night.
 
 The reset and upgrade timers do not wait for CI to finish, so they can interrupt long or manual runs.
 
