@@ -1,6 +1,6 @@
 # Installation and recovery
 
-Use a UEFI NixOS installer for the target architecture with compatible ZFS support. Run commands as root in Bash. Replace every `<placeholder>`; the hostname is `sparkle` or `sparxie`. The examples use `/dev/nvme0n1`, so substitute the actual disk. Partitioning and formatting erase it. Forgejo runs on Sparkle, so a Sparkle recovery clones from another checkout, such as the desktop's.
+Use a UEFI NixOS installer for the target architecture with compatible ZFS support. On Sparkle, disable Secure Boot enforcement before booting unsigned installation or recovery media. Run commands as root in Bash. Replace every `<placeholder>`; the hostname is `sparkle` or `sparxie`. The examples use `/dev/nvme0n1`, so substitute the actual disk. Partitioning and formatting erase it. Forgejo runs on Sparkle, so a Sparkle recovery clones from another checkout, such as the desktop's.
 
 ## 1. Partition and create datasets
 
@@ -64,11 +64,11 @@ SOPS_AGE_KEY_CMD='ssh-to-age -private-key -i <old-private-key>' \
   -c sops updatekeys -y hosts/<hostname>/secrets.yaml
 ```
 
-If the old host key is lost, recreate the host secrets from the password manager. For Sparkle, also set `consoleKey` in `flake.nix` to the new SSH public key. Repeat the command for each guest secret file whose creation rule includes `sparkle_host`, using either the old Sparkle key or that guest's key.
+If the old host key is lost, recreate the host secrets from the password manager. For Sparkle, also set `consoleKey` in `flake.nix` to the new SSH public key. Repeat the command for each guest secret file whose creation rule includes `sparkle_host`, using either the old Sparkle key or that guest's key. If neither key survives, recreate that guest's secrets too.
 
 Restore guest keys and application state under `/mnt/persist/vms/` before the first boot. For a fresh Sparkle installation, create each guest's SSH key as in [guest provisioning](guests.md#add-a-guest), using `/mnt/persist/vms/<name>/etc/ssh/` in the installer. For guests with SOPS files, update their recipients in `.sops.yaml` and re-encrypt their secret files; both the guest and Sparkle must remain recipients.
 
-Secret values are single lines. Follow each application's quoting rules, including Authelia's single-quoted YAML and ejabberd's block scalars. The Attic and Vaultwarden database passwords must be URL-safe, for example `openssl rand -hex 32`. Rotate an application's database password and the matching PostgreSQL role secret together.
+Keep passwords and values inserted into configuration templates on one line. File secrets, such as SSH private keys and WireGuard configurations, keep their required multiline format. Follow each application's quoting rules, including Authelia's single-quoted YAML and ejabberd's block scalars. The Attic and Vaultwarden database passwords must be URL-safe, for example `openssl rand -hex 32`. Rotate an application's database password and the matching PostgreSQL role secret together.
 
 ## 4. Prepare Secure Boot keys (Sparkle)
 
@@ -98,12 +98,13 @@ nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nix
 ```sh
 nixos-install --no-root-passwd --flake /mnt/persist/nix-config#<hostname>
 chown -R 1000:100 /mnt/persist/nix-config
+rm -f /mnt/persist/var/lib/systemd/timers/stamp-nixos-upgrade.timer
 cd /
 umount -R /mnt
 zpool export <hostname>
 ```
 
-The checkout belongs to `carmilla:users`. Root has no password and cannot log in over SSH. The host does not force-import its root pool, so export it before rebooting.
+The checkout belongs to `carmilla:users`. Root password login is locked, and root cannot log in over SSH. The host does not force-import its root pool, so export it before rebooting. Removing the upgrade timer stamp prevents a recovered host from catching up on a missed upgrade immediately after boot; the next scheduled upgrade still runs.
 
 Commit the hardware, host ID, and SOPS changes, sign them with a key in `host.autoUpdate.allowedSigners`, and push them to `main` before the next upgrade at 02:30 UTC. The upgrade resets the checkout to `origin/main` and would otherwise revert them.
 
@@ -169,11 +170,7 @@ Read-only NFS exports squash to UID 1000 and GID 100. The writable torrents expo
    cd /mnt/persist/nix-config
    ```
 
-   The restored checkout contains the old hardware identifiers, so repeat the UUID, dataset, and host ID edits from section 2. No archive contains the CI store image. Archives created before the CI database exclusion still contain `/mnt/persist/vms/ci-runner/nix/var`; delete it before booting. The restored upgrade timer stamp would start a missed upgrade shortly after boot and reset the checkout before the edits are pushed, so delete it too:
-
-   ```sh
-   rm -f /mnt/persist/var/lib/systemd/timers/stamp-nixos-upgrade.timer
-   ```
+   The restored checkout contains the old hardware identifiers, so repeat the UUID, dataset, and host ID edits from section 2. No archive contains the CI store image. Archives created before the CI database exclusion still contain `/mnt/persist/vms/ci-runner/nix/var`; delete it before booting. Section 5 also removes the recovered upgrade timer stamp, so a missed upgrade cannot reset the checkout immediately after boot.
 
    Restore `/home` and the vault pool separately, then follow sections 3 to 5.
 
