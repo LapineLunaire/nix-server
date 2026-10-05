@@ -33,7 +33,7 @@ The ci-runner guest runs the `nixos` Forgejo Actions jobs for nix-server and nix
 
 Guests mount the host store read-only at `/nix/.ro-store` and write to an overlay upper layer at `/nix/.rw-store`, which most guests keep on the tmpfs root. ci-runner keeps it on a persistent 128 GiB XFS image and persists `/nix/var`. Do not run garbage collection inside ci-runner, because overlay whiteouts can hide host store paths that later generations need.
 
-The nightly reset stops ci-runner, deletes its Nix database and store image, and starts it again. If a step fails, the unit fails without sending mail and leaves ci-runner stopped until the next night's reset or a reboot. Check it with `doas systemctl status ci-runner-store-reset`, fix the cause, and run `doas systemctl start ci-runner-store-reset`. A missed reset waits for the next night. Missing store paths are fetched from the caches or rebuilt. See the [nightly schedule](../README.md#nightly-updates).
+The nightly reset stops ci-runner, deletes its Nix database and store image, and queues its restart. A cleanup failure leaves the guest stopped; a failed stop prevents cleanup. The reset unit reports these failures without sending mail, but a queued restart can still fail after the reset unit succeeds. Check both units with `doas systemctl status ci-runner-store-reset microvm@ci-runner`, fix the cause, and run `doas systemctl start ci-runner-store-reset`. A missed reset waits for the next night. Missing store paths are fetched from the caches or rebuilt. See the [nightly schedule](../README.md#nightly-updates).
 
 ## Borg backup and recovery
 
