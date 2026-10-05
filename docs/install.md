@@ -56,7 +56,7 @@ nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nix
   -c ssh-to-age < /mnt/persist/etc/ssh/ssh_host_ed25519_key.pub
 ```
 
-Update `<hostname>_host` in `.sops.yaml`, then re-encrypt the secrets for the new key. The recipients use age keys derived with `ssh-to-age`, so derive the matching private identity from an existing SSH key too. Root in the installer has none, so pass its path explicitly:
+Set `<hostname>_host` in `.sops.yaml` to the new age recipient. Use the old SSH host private key to re-encrypt the host secrets, replacing `<old-private-key>` with its file path:
 
 ```sh
 SOPS_AGE_KEY_CMD='ssh-to-age -private-key -i <old-private-key>' \
@@ -64,7 +64,7 @@ SOPS_AGE_KEY_CMD='ssh-to-age -private-key -i <old-private-key>' \
   -c sops updatekeys -y hosts/<hostname>/secrets.yaml
 ```
 
-Only the old host key can re-encrypt the host's file. If it is lost, recreate the secret values. For Sparkle, also set `consoleKey` in `flake.nix` to the new SSH public key and run `sops updatekeys` on every guest secret file whose creation rule includes `sparkle_host`; each guest's own key can decrypt its file.
+If the old host key is lost, recreate the host secrets from the password manager. For Sparkle, also set `consoleKey` in `flake.nix` to the new SSH public key. Repeat the command for each guest secret file whose creation rule includes `sparkle_host`, using either the old Sparkle key or that guest's key.
 
 Restore guest keys and application state under `/mnt/persist/vms/` before the first boot. For a fresh Sparkle installation, create each guest's SSH key as in [guest provisioning](guests.md#add-a-guest), using `/mnt/persist/vms/<name>/etc/ssh/` in the installer. For guests with SOPS files, update their recipients in `.sops.yaml` and re-encrypt their secret files; both the guest and Sparkle must remain recipients.
 
@@ -105,7 +105,7 @@ zpool export <hostname>
 
 The checkout belongs to `carmilla:users`. Root has no password and cannot log in over SSH. The host does not force-import its root pool, so export it before rebooting.
 
-Commit the hardware, host ID, and SOPS changes, sign them with a key in `host.autoUpdate.allowedSigners`, and push them to `main` before the next upgrade at 01:30 UTC. The upgrade resets the checkout to `origin/main` and would otherwise revert them.
+Commit the hardware, host ID, and SOPS changes, sign them with a key in `host.autoUpdate.allowedSigners`, and push them to `main` before the next upgrade at 02:30 UTC. The upgrade resets the checkout to `origin/main` and would otherwise revert them.
 
 Sparxie needs no key enrollment; run `reboot`. Sparkle asks for the pool passphrase on every boot. For new Sparkle signing keys, disable Secure Boot enforcement, enter firmware Setup Mode while preserving `dbx`, and reboot. If restored keys are already enrolled, skip the enrollment. Otherwise, run as `carmilla`:
 

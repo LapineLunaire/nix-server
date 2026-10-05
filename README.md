@@ -33,11 +33,11 @@ The development shell enables the `.githooks/pre-commit` hook, which checks stag
 
 | UTC | Event |
 |---|---|
-| 23:00 | CI store reset |
-| 23:15 | [Server update workflow](.forgejo/workflows/flake-update.yml) |
-| 01:30 | Host upgrades, with up to 15 minutes of jitter |
-| 02:30 | Desktop update workflow; Sparkle backup |
-| 03:00 | Sparxie backup |
+| 00:00 | CI store reset |
+| 00:15 | [Server update workflow](.forgejo/workflows/flake-update.yml) |
+| 02:30 | Host upgrades, with up to 15 minutes of jitter |
+| 03:30 | Desktop update workflow; Sparkle backup |
+| 04:00 | Sparxie backup |
 
 The server workflow refreshes the Home Assistant image digest on Mondays and on manual runs, then updates `flake.lock`. When the lock changes, it refreshes the Caddy plugin hash if needed, evaluates both hosts, builds Sparkle, uploads the closure to the `server` Attic cache, and pushes a signed commit. Sparxie is evaluated but not built. Without `ATTIC_TOKEN` the upload is skipped; with it, an upload failure blocks the push.
 

@@ -28,7 +28,7 @@ in {
     allowReboot = lib.mkDefault true;
     # Use the flake lock rather than channel upgrades.
     upgrade = false;
-    dates = "01:30";
+    dates = "02:30";
     randomizedDelaySec = "15min";
     persistent = true;
   };

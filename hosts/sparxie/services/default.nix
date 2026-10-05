@@ -2,7 +2,7 @@
   imports = [
     (import ../../../modules/nixos/borg-backup.nix {
       pool = "sparxie";
-      startAt = "03:00";
+      startAt = "04:00";
     })
     ../../../modules/nixos/acme.nix
     ../../../modules/nixos/caddy.nix
