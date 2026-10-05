@@ -63,6 +63,7 @@
       key_type p384
       cert_issuer acme {
         dir https://acme-v02.api.letsencrypt.org/directory
+        profile shortlived
       }
     '';
   };

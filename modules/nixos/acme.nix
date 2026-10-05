@@ -16,6 +16,7 @@ in {
     defaults = {
       # Match the issuer allowed by the zones' CAA records.
       server = "https://acme-v02.api.letsencrypt.org/directory";
+      profile = "shortlived";
       email = config.host.acmeEmail;
       keyType = "ec384";
       dnsProvider = "cloudflare";
