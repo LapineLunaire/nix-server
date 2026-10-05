@@ -3,8 +3,6 @@
   users.mutableUsers = false;
 
   security.protectKernelImage = true;
-  # Force PTI even when the CPU reports itself unaffected by Meltdown.
-  security.forcePageTableIsolation = true;
 
   boot.kernelParams = [
     # Prevents slab cache merging, which hardens against heap exploits.
