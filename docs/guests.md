@@ -33,7 +33,7 @@ The ci-runner guest runs the `nixos` Forgejo Actions jobs for nix-server and nix
 
 Guests mount the host store read-only at `/nix/.ro-store` and write to an overlay upper layer at `/nix/.rw-store`, which most guests keep on the tmpfs root. ci-runner keeps it on a persistent 128 GiB XFS image and persists `/nix/var`. Do not run garbage collection inside ci-runner, because overlay whiteouts can hide host store paths that later generations need.
 
-The nightly reset stops ci-runner, deletes its store image and its Nix database, and starts it again. A missed reset waits for the next night. Missing store paths are fetched from the caches or rebuilt. See the [nightly schedule](../README.md#nightly-updates).
+The nightly reset stops ci-runner, deletes its Nix database and store image, and starts it again. If either deletion fails, the guest stays stopped for repair. A missed reset waits for the next night. Missing store paths are fetched from the caches or rebuilt. See the [nightly schedule](../README.md#nightly-updates).
 
 ## Borg backup and recovery
 

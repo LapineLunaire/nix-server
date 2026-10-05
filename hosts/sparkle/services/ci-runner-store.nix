@@ -8,16 +8,15 @@ in {
     # Reset before the nightly update workflows. Missed resets wait until tomorrow.
     startAt = "00:00";
     path = [pkgs.coreutils pkgs.systemd];
-    serviceConfig = {
-      Type = "oneshot";
-      # Restart the guest even if cleanup fails. Avoid waiting on this unit's own shutdown job.
-      ExecStopPost = "${pkgs.systemd}/bin/systemctl start --no-block microvm@ci-runner";
-    };
+    serviceConfig.Type = "oneshot";
     # microvm creates a volume only when its image is absent.
     script = ''
       systemctl stop microvm@ci-runner
-      rm -f ${volume}
+      # Stop on cleanup failures rather than boot with a mismatched store and database.
       rm -rf ${database}
+      rm -f ${volume}
+      # Queue the restart without waiting for the guest to boot.
+      systemctl start --no-block microvm@ci-runner
     '';
   };
 }
