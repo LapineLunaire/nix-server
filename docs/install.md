@@ -56,11 +56,11 @@ nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nix
   -c ssh-to-age < /mnt/persist/etc/ssh/ssh_host_ed25519_key.pub
 ```
 
-Update `<hostname>_host` in `.sops.yaml`, then re-encrypt the secrets for the new key. sops needs the private key of an existing recipient, and root in the installer has none, so pass it explicitly:
+Update `<hostname>_host` in `.sops.yaml`, then re-encrypt the secrets for the new key. The recipients use age keys derived with `ssh-to-age`, so derive the matching private identity from an existing SSH key too. Root in the installer has none, so pass its path explicitly:
 
 ```sh
-SOPS_AGE_SSH_PRIVATE_KEY_FILE=<old-private-key> \
-  nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nixpkgs#sops \
+SOPS_AGE_KEY_CMD='ssh-to-age -private-key -i <old-private-key>' \
+  nix --extra-experimental-features 'nix-command flakes' shell --inputs-from . nixpkgs#sops nixpkgs#ssh-to-age \
   -c sops updatekeys -y hosts/<hostname>/secrets.yaml
 ```
 
