@@ -23,8 +23,9 @@
       roles);
   in {
     description = "Set PostgreSQL user passwords from sops secrets";
-    after = ["postgresql.service"];
-    requires = ["postgresql.service"];
+    # The setup unit creates roles after the database process starts.
+    after = ["postgresql.service" "postgresql-setup.service"];
+    requires = ["postgresql.service" "postgresql-setup.service"];
     wantedBy = ["multi-user.target"];
     serviceConfig = {
       Type = "oneshot";
