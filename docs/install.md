@@ -1,6 +1,6 @@
 # Installation and recovery
 
-Use a UEFI NixOS installer for the target architecture whose ZFS is not newer than the hosts' ZFS 2.4. On Sparkle, disable Secure Boot enforcement before booting unsigned installation or recovery media. Run commands as root in Bash. Replace every `<placeholder>`; the hostname is `sparkle` or `sparxie`. The examples use `/dev/nvme0n1`, so substitute the actual disk; for `/dev/sda`, the partitions are `/dev/sda1` and `/dev/sda2`. Partitioning and formatting erase it. Forgejo runs on Sparkle, so a Sparkle recovery clones from another checkout, such as a nix-server clone on the desktop.
+Use a UEFI NixOS installer for the target architecture whose ZFS is not newer than the hosts' ZFS 2.4. On Sparkle, disable Secure Boot enforcement before booting unsigned installation or recovery media. Run commands as root in Bash. Replace every `<placeholder>`; the hostname is `sparkle` or `sparxie`. The examples use `/dev/nvme0n1`, so substitute the actual disk; for `/dev/sda`, the partitions are `/dev/sda1` and `/dev/sda2`. Partitioning and formatting erase it.
 
 ## 1. Partition and create datasets
 
@@ -38,12 +38,12 @@ mount -o umask=0077 /dev/nvme0n1p1 /mnt/boot
 mount -t zfs -o zfsutil <hostname>/nix /mnt/nix
 mount -t zfs -o zfsutil <hostname>/persist /mnt/persist
 mount -t zfs -o zfsutil <hostname>/home /mnt/home
-git clone <repo> /mnt/persist/nix-config
+git clone https://git.lunaire.moe/carmilla/nix-server.git /mnt/persist/nix-config
 cd /mnt/persist/nix-config
 blkid /dev/nvme0n1p1
 ```
 
-If the clone came from another checkout, point `origin` at Forgejo, because the nightly upgrade fetches from it:
+Forgejo runs on Sparkle. If it is unreachable, clone the GitHub mirror at `https://github.com/LapineLunaire/nix-server.git` instead, then point `origin` at Forgejo, because the nightly upgrade fetches from it:
 
 ```sh
 git remote set-url origin https://git.lunaire.moe/carmilla/nix-server.git
@@ -162,7 +162,7 @@ Read-only NFS exports squash to UID 1000 and GID 100. The writable torrents expo
 
    The installer has a different host ID, so the import fails if the original host did not export the pool. Use `zpool import -f -N <hostname>` only after confirming that no other system has it imported.
 
-3. For replacement storage, follow section 1 and the mount commands from section 2, but clone the repository to `/tmp/nix-config` instead of `/mnt/persist/nix-config`. Put the Borg passphrase, SSH private key, and pinned SSH known-hosts entries in root-owned files with mode `0600`, then enter a shell with the checkout's Borg version:
+3. For replacement storage, follow section 1 and the mount commands from section 2, but clone the repository from Forgejo or the GitHub mirror to `/tmp/nix-config` instead of `/mnt/persist/nix-config`. Put the Borg passphrase, SSH private key, and pinned SSH known-hosts entries in root-owned files with mode `0600`, then enter a shell with the checkout's Borg version:
 
    ```sh
    nix --extra-experimental-features 'nix-command flakes' shell --inputs-from /tmp/nix-config nixpkgs#borgbackup
