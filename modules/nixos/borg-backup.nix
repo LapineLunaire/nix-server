@@ -82,6 +82,13 @@ in {
     '')
   ];
 
+  # ReadWritePaths must exist before the service namespace and preHook are set up.
+  systemd.tmpfiles.settings."10-borg-backup"."/mnt".d = {
+    user = "root";
+    group = "root";
+    mode = "0755";
+  };
+
   systemd.services."borgbackup-job-hetzner" = {
     onFailure = ["borgbackup-failed.service"];
     # Allow the snapshot mount and the success marker under ProtectSystem=strict.
