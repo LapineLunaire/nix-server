@@ -288,13 +288,15 @@
   };
 
   systemd.services.ejabberd = {
-    # Set the database password before ejabberd connects.
+    # Wait for database credentials and readable bootstrap certificate files.
     after = [
+      "acme-bunny.enterprises.service"
       "postgresql.service"
       "postgresql-passwords.service"
       "redis.service"
     ];
     requires = [
+      "acme-bunny.enterprises.service"
       "postgresql.service"
       "postgresql-passwords.service"
       "redis.service"
