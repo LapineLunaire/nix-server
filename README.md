@@ -40,6 +40,8 @@ Entering the development shell sets this clone's hook path to `.githooks`. The p
 | 04:00 | Sparxie backup |
 | 12:00 | Borg freshness check |
 
+Forgejo queues updates per branch using its [best-effort concurrency control](https://forgejo.org/docs/v15.0/user/actions/reference/#concurrency). Each job checks out the latest branch so queued runs include earlier update commits.
+
 On Mondays and manual runs, the `digests` job refreshes the Home Assistant image digest; when it changes, the job evaluates all systems, builds Sparkle, and pushes a signed commit. After it succeeds, the `update` job updates `flake.lock`. When the lock changes, it refreshes the Caddy plugin hash if needed, evaluates all systems, builds Sparkle but not Sparxie, uploads the closure to the `server` Attic cache, and pushes a signed commit. Without `ATTIC_TOKEN`, the job skips the upload; with it, an upload failure blocks the push.
 
 Each host upgrade verifies the signature on `origin/main` and runs `git reset --hard` to that commit in `/persist/nix-config`. This discards uncommitted changes to tracked files and unpushed commits on the checked-out branch. Commit signing is configured only on the desktop, so commit and push from there. Sparxie reboots when the kernel, kernel modules, or initrd change. Sparkle restarts changed running guests; boot changes need a manual reboot and the pool passphrase. A failed upgrade mails the last 50 lines of its log. Commits pushed after the upgrade check wait for the next night.
