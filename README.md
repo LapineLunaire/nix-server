@@ -17,7 +17,7 @@ nh os switch .
 
 A manual switch does not restart guests. Restart each changed guest with `doas systemctl restart microvm@<name>`.
 
-On a host, the `sops` shell alias derives the age identity from the SSH host key, so `sops hosts/<hostname>/secrets.yaml` decrypts with that key.
+On a host, the `sops` shell alias derives the age identity from the SSH host key, so `sops hosts/<hostname>/secrets.yaml` decrypts with that key. See [identity recovery and rotation](docs/keys.md#restore-identity-and-state).
 
 ## Check changes
 

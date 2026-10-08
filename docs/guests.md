@@ -23,7 +23,7 @@ doas systemctl restart microvm@<name>
    ssh-keygen -t ed25519 -N '' -f /persist/vms/<name>/etc/ssh/ssh_host_ed25519_key
    ```
 
-   For SOPS, convert the public key with `ssh-to-age`, add the recipient and a creation rule to `.sops.yaml`, and encrypt the secrets for both the guest and Sparkle. Restore keys and state with their numeric owners. Sparkle creates each `volumes` directory as `microvm:kvm` with mode `0750`. For secret value formats, see [restore identity and state](install.md#3-restore-identity-and-state).
+   For SOPS, convert the public key with `ssh-to-age`, add the recipient and a creation rule to `.sops.yaml`, and encrypt the secrets for both the guest and Sparkle. Restore keys and state with their numeric owners. Sparkle creates each `volumes` directory as `microvm:kvm` with mode `0750`. For secret value formats, see [restore identity and state](keys.md#restore-identity-and-state).
 
 Stage new files with `git add` before evaluating or switching, because a Git-backed flake omits untracked files. Commit the guest, sign it with a key in `host.autoUpdate.allowedSigners`, and push it before the next nightly upgrade. The upgrade runs `git reset --hard` to `origin/main`, which also deletes staged files that are not committed.
 
@@ -76,7 +76,7 @@ cd ~
 doas rm -rf ~/borg-restore
 ```
 
-For a full host recovery, see [Recovery](install.md#recovery).
+For a full host recovery, see [server recovery](recover-servers.md).
 
 The job fails on Borg warnings as well as errors, and each failure mails the last 50 lines of the job log. Only a run that completes creation, pruning, and compaction touches `/var/lib/borgbackup/hetzner/last-success`. At 12:00 UTC, `borgbackup-freshness` mails when that file is missing or more than 24 hours old. To inspect the job:
 
